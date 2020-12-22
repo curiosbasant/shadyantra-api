@@ -1,0 +1,8 @@
+export const BOARD_SIZE = 10;
+export const TOTAL_SQUARES = BOARD_SIZE * BOARD_SIZE;
+
+export const NEIGHBOURS = [
+  -BOARD_SIZE - 1, -BOARD_SIZE, -BOARD_SIZE + 1,
+  -1, 1,
+  BOARD_SIZE - 1, BOARD_SIZE, BOARD_SIZE + 1
+];

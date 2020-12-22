@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "noImplicitAny": false,
+    // "isolatedModules": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": [
+      "ES2020",
+      "esnext"
+    ],
+    "declaration": true,
+    "declarationDir": "build/typings",
+    "stripInternal": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "removeComments": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    // "resolveJsonModule": true,
+    "outDir": "build",
+    "strict": true,
+    "inlineSourceMap": true,
+    // "typeRoots": [
+    //   "./node_modules/@types",
+    //   "./src/@types"
+    // ]
+  },
+  "include": [
+    "src/**/*.ts"
+  ]
+}
