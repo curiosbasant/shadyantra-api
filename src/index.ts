@@ -1,4 +1,3 @@
-// @ts-nochec/k
 String.prototype.isLowerCase = function () {
   return this === this.toLowerCase();
 };
@@ -14,7 +13,9 @@ String.prototype.toCamelCase = function () {
   ).replace(/\s+|-/g, '');
 };
 
-import ShadYantra from './ShadYantra';
+import ShadYantra from './board/ShadYantra';
 
 const shadYantra = new ShadYantra();
 shadYantra.board.print();
+console.log(shadYantra.generateFEN());
+console.log('Printed');

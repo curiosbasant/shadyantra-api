@@ -1,5 +1,5 @@
 import Board from './Board';
-import Piece from './pieces';
+import Piece from '../pieces';
 
 export enum SQUARE_FLAGS {
   x9, a9, b9, c9, d9, e9, f9, g9, h9, y9,
@@ -20,7 +20,7 @@ export default abstract class Bhoomi {
   protected isRajkila = false;
   protected isViramBhumi = false;
   protected isYuddhBhumi = false;
-  candidatePieces: Piece[] = [];
+  candidatePieces: Set<Piece> = new Set();
 
   constructor(readonly board: Board, readonly name: SquareName) {
 
@@ -30,7 +30,7 @@ export default abstract class Bhoomi {
     return SQUARE_FLAGS[this.name];
   }
   get piece() {
-    return this.board.alignment[this.index];
+    return this.board.builder.config[this.index];
   }
   get isOccupied() {
     return !this.isEmpty;

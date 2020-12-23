@@ -1,8 +1,9 @@
-import Alliance from './Alliance';
 import Bhoomi, { Naaglok, Rajkila, SquareName, SQUARE_FLAGS, ViramBhoomi } from './Square';
-import Player from './Player';
-import { BOARD_SIZE, TOTAL_SQUARES } from './Utils';
-import Piece from './pieces';
+import Player from '../player/Player';
+import { BOARD_SIZE, TOTAL_SQUARES } from '../Utils';
+import Piece from '../pieces';
+import Move from './Movement';
+import Alliance from '../player/Alliance';
 
 export default class Board {
   static generateBoard(board: Board) {
@@ -36,30 +37,34 @@ export default class Board {
 
     return sqrs;
   }
-  moves = 0;
-  alignment: (Piece | null)[] = Array(TOTAL_SQUARES).fill(null);
-  private squares: Map<SquareName, Bhoomi>;
-  players = [
-    new Player(new Alliance('BLACK', -BOARD_SIZE)),
-    new Player(new Alliance('WHITE', BOARD_SIZE))
-  ];
+
+  private calculateLegalMoves(boardAlignment: (Piece | null)[]) {
+    const whiteLegals: Move[] = [], blackLegals: Move[] = [];
+    for (const piece of boardAlignment) {
+      if (!piece) continue;
+      const legals = piece.calculateLegalMoves(this);
+      for (const move of legals) move.destinationSquare.candidatePieces.add(piece);
+      if (piece.alliance == Alliance.WHITE) {
+        whiteLegals.push(...legals);
+      } else {
+        blackLegals.push(...legals);
+      }
+    }
+    return [blackLegals, whiteLegals];
+  }
+
+  squares: Map<SquareName, Bhoomi>;
+  players: [Player, Player];
   isWhiteTurn: boolean;
 
-  constructor(isWhiteTurn = true) {
+  constructor(readonly builder: Builder, isWhiteTurn = true) {
     this.isWhiteTurn = isWhiteTurn;
     this.squares = Board.generateBoard(this);
-    this.players.forEach((player, i, arr) => player.alliance.setOpponent(arr[i ^ 1].alliance));
-  }
-
-  private calculateLegals() {
-    for (const piece of this.alignment) {
-      if (!piece) continue;
-      const legals = piece.calculateLegalMoves();
-      for (const move of legals) move.destinationSquare.candidatePieces.push(piece);
-    }
-  }
-  setPiece(piece: Piece) {
-    this.alignment[piece.position] = piece;
+    const [blackLegals, whiteLegals] = this.calculateLegalMoves(builder.config);
+    this.players = [
+      new Player(this, Alliance.BLACK, blackLegals),
+      new Player(this, Alliance.WHITE, whiteLegals)
+    ];
   }
 
   getSquareAt(index: number) {
@@ -71,7 +76,7 @@ export default class Board {
   }
 
   toString() {
-    return this.alignment.reduce((str, piece, i) => {
+    return this.builder.config.reduce((str, piece, i) => {
       let temp = piece ? piece.notation : '∙';
       if (!((i + 1) % BOARD_SIZE)) temp += '\n';
       return str + '  ' + temp;
@@ -99,5 +104,18 @@ export default class Board {
   }
   get opponentPlayer() {
     return this.players[+!this.isWhiteTurn];
+  }
+}
+
+export class Builder {
+  config: (Piece | null)[] = Array(TOTAL_SQUARES).fill(null);
+
+  setPiece(piece: Piece) {
+    this.config[piece.position] = piece;
+    return this;
+  }
+
+  build() {
+    return new Board(this);
   }
 }

@@ -3,3 +3,4 @@ private
 *.lock
 .vscode
 .DS_Store
+lib

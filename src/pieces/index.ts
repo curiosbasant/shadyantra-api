@@ -1,6 +1,6 @@
 import Piece from './Piece';
 export default Piece;
-// export { default as Pyada } from './Pyada';
+export { default as Pyada } from './Pyada';
 export { default as Rajendra } from './Rajendra';
 
 type val = Piece[keyof Piece];

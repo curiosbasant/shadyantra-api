@@ -1,5 +1,5 @@
 import Bhoomi from './Square';
-import Piece from './pieces';
+import Piece from '../pieces';
 
 export default class Move {
   constructor(readonly movedPiece: Piece, readonly destinationSquare: Bhoomi) {

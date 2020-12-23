@@ -1,8 +1,8 @@
-import { PieceNotation, PieceSymbol, Rajendra } from '.';
-import Alliance from '../Alliance';
-import { SquareName, SQUARE_FLAGS } from '../Square';
-import Board from '../Board';
-import Move from '../Movement';
+import { PieceNotation, PieceSymbol, Pyada, Rajendra } from '.';
+import Alliance from '../player/Alliance';
+import { SquareName, SQUARE_FLAGS } from '../board/Square';
+import Board from '../board/Board';
+import Move from '../board/Movement';
 import { BOARD_SIZE, NEIGHBOURS } from '../Utils';
 
 class Type {
@@ -27,31 +27,26 @@ export default abstract class Piece {
   static getPieceByNotation(notation: PieceSymbol) {
     switch (notation) {
       case 'I': return Rajendra;
-      case 'A': return Rajendra;
-      case 'R': return Rajendra;
-      case 'C': return Rajendra;
-      case 'S': return Rajendra;
-      case 'H': return Rajendra;
-      case 'G': return Rajendra;
-      case 'M': return Rajendra;
-      case 'P': return Rajendra;
+      case 'A': return Pyada;
+      case 'R': return Pyada;
+      case 'C': return Pyada;
+      case 'S': return Pyada;
+      case 'H': return Pyada;
+      case 'G': return Pyada;
+      case 'M': return Pyada;
+      case 'P': return Pyada;
     }
   }
 
-  abstract calculateLegalMoves(): Move[];
+  abstract calculateLegalMoves(board: Board): Move[];
 
   readonly notation: PieceNotation;
 
   constructor(
-    readonly board: Board,
     readonly type: Type,
     readonly position: number,
     readonly alliance: Alliance
   ) {
     this.notation = type.symbol[alliance.color == 'WHITE' ? 'toUpperCase' : 'toLowerCase']() as PieceNotation;
-  }
-
-  get square() {
-    return this.board.getSquareAt(this.position)!;
   }
 }

@@ -1,26 +1,26 @@
-import Alliance from '../Alliance';
-import { SquareName } from '../Square';
-import Board from '../Board';
-import Move, { AttackMove } from '../Movement';
+import Alliance from '../player/Alliance';
+import Board from '../board/Board';
+import Move, { AttackMove } from '../board/Movement';
 import Piece from './Piece';
 
 export default class Rajendra extends Piece {
-  constructor(board: Board, position: number, alliance: Alliance) {
-    super(board, Piece.RAJENDRA, position, alliance);
+  constructor(position: number, alliance: Alliance) {
+    super(Piece.RAJENDRA, position, alliance);
   }
 
-  calculateLegalMoves() {
+  calculateLegalMoves(board: Board) {
     const moves: Move[] = [];
 
     for (const candidateSquareIndex of this.type.legals) {
       const destinationIndex = candidateSquareIndex + this.position;
-      const destinationSquare = this.board.getSquareAt(destinationIndex);
+      const destinationSquare = board.getSquareAt(destinationIndex);
       if (destinationSquare === undefined) continue;
-      if (!destinationSquare.piece) {
+      if (destinationSquare.isEmpty) {
         moves.push(new Move(this, destinationSquare));
-      } else if (this.board.opponentPlayer.alliance == destinationSquare.piece.alliance) {
+      } else if (this.alliance == destinationSquare.piece!.alliance) {
         moves.push(new AttackMove(this, destinationSquare));
       }
+      destinationSquare.piece?.alliance
     }
     return moves;
   }

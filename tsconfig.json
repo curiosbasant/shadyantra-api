@@ -10,23 +10,17 @@
       "esnext"
     ],
     "declaration": true,
-    "declarationDir": "build/typings",
+    "declarationDir": "lib/typings",
     "stripInternal": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "removeComments": true,
-    "noEmit": true,
+    // "noEmit": true,
     "skipLibCheck": true,
     // "resolveJsonModule": true,
-    "outDir": "build",
+    "outDir": "lib",
+    "rootDir": "src",
     "strict": true,
     "inlineSourceMap": true,
-    // "typeRoots": [
-    //   "./node_modules/@types",
-    //   "./src/@types"
-    // ]
-  },
-  "include": [
-    "src/**/*.ts"
-  ]
+  }
 }
