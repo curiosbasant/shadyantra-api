@@ -1,8 +1,8 @@
-import Alliance from '../player/Alliance';
-import Board from '../board/Board';
-import Move, { AttackMove } from '../board/Movement';
-import Piece from './Piece';
-import { BOARD_SIZE } from '../Utils';
+import { Piece } from '.';
+import { Board, Move, AttackMove } from '../board';
+import { Alliance } from '../player';
+import { NEIGHBOURS } from '../Utils';
+
 
 export default class Pyada extends Piece {
   constructor(position: number, alliance: Alliance) {
@@ -11,6 +11,12 @@ export default class Pyada extends Piece {
 
   calculateLegalMoves(board: Board) {
     const moves: Move[] = [];
+    
+    const isOfficerNearby = cdd => {
+      const piece = board.builder.config[this.position + cdd];
+      return !piece ? false : piece.isOfficer;
+    };
+    if (!NEIGHBOURS.some(isOfficerNearby)) return moves;
 
     for (const candidateSquareIndex of this.type.legals) {
       const destinationIndex = this.position + this.alliance.direction * candidateSquareIndex;

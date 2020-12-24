@@ -1,25 +1,31 @@
 import { EventEmitter } from 'events';
 import path from 'path';
 import requireAll from 'require-all';
-import Alliance from '../player/Alliance';
-import { SquareName, SQUARE_FLAGS } from './Square';
-import Board, { Builder } from './Board';
-import Piece, { PieceSymbol } from '../pieces';
-import { BOARD_SIZE, TOTAL_SQUARES } from '../Utils';
+import { Board, History } from '.';
+import { Piece, PieceSymbol } from '../pieces';
+import { Alliance } from '../player';
+import { TOTAL_SQUARES, BOARD_SIZE } from '../Utils';
+import { Builder, SquareName, SQUARE_FLAGS } from '.';
+
 
 interface ChessOption {
   isWhiteTurn?: boolean;
 }
 
-const DEFAULT_FEN = '0ccciaccc0/9/4c3/9/9/9/9/9/9/0CCCIACCC0';
+const DEFAULT_FEN = '0c1ia1c0/cmhgasghmc/cppppppppc/9/9/9/9/CPPPPPPPPC/CMHGASGHMC/0C1IA1C0';
 
 export default class ShadYantra extends EventEmitter {
   board!: Board;
+  history = new History();
   isWhiteTurn: boolean;
 
-  constructor(fen = DEFAULT_FEN, options: ChessOption = {}) {
+  constructor(
+    fen = DEFAULT_FEN, {
+      isWhiteTurn = true,
+    }: ChessOption = {}
+  ) {
     super();
-    this.isWhiteTurn = options.isWhiteTurn ?? true;
+    this.isWhiteTurn = isWhiteTurn;
     this.registerEvents(path.join(__dirname, '../events'));
     this.loadFEN(fen);
   }
@@ -43,7 +49,7 @@ export default class ShadYantra extends EventEmitter {
       if (ch.isNumber()) {
         sqrIndex += +ch;
       } else {
-        const PieceClass = Piece.getPieceByNotation(ch.toUpperCase() as PieceSymbol);
+        const PieceClass = Piece.getPieceBySymbol(ch.toUpperCase() as PieceSymbol);
         const alliance = ch.isUpperCase() ? Alliance.WHITE : Alliance.BLACK;
         builder.setPiece(new PieceClass(sqrIndex, alliance));
         // console.log(sqrIndex, ch);
@@ -54,11 +60,12 @@ export default class ShadYantra extends EventEmitter {
   }
 
   move(squareRef: SquareName | number) {
-    if (typeof squareRef == 'number' && (squareRef < 0 || squareRef >= BOARD_SIZE)) throw new Error("Invalid Index!");
+    if (typeof squareRef == 'number' && (squareRef < 0 || squareRef >= TOTAL_SQUARES)) throw new Error("Invalid Index!");
 
     const squareName = typeof squareRef == 'number' ? SQUARE_FLAGS[squareRef] as SquareName : squareRef;
     const square = this.board.squares.get(squareName)!;
     // if (square.candidatePieces.size != 1);
+    this.history.save(this.board.createState())
   }
 
   private validateFEN(fen: string) {
@@ -66,11 +73,7 @@ export default class ShadYantra extends EventEmitter {
   }
   generateFEN() {
     let ctr = -1;
-    const join = ch => {
-      if (ctr == -1) return ch;
-      ctr = -1;
-      return ctr + ch;
-    };
+    const join = (ch: string) => ctr == -1 ? ch : [ctr + ch, ctr = -1][0];
     return this.board.builder.config.reduce((str, piece, i) => {
       if (!piece) {
         ctr++;

@@ -1,13 +1,13 @@
-import Bhoomi, { Naaglok, Rajkila, SquareName, SQUARE_FLAGS, ViramBhoomi } from './Square';
-import Player from '../player/Player';
+import { Square, Move, BoardState } from '.';
+import { Piece } from '../pieces';
+import { Alliance, Player } from '../player';
 import { BOARD_SIZE, TOTAL_SQUARES } from '../Utils';
-import Piece from '../pieces';
-import Move from './Movement';
-import Alliance from '../player/Alliance';
+import { SquareName, YuddhBhoomi, Naaglok, Rajkila, ViramBhoomi, SQUARE_FLAGS } from '.';
+
 
 export default class Board {
   static generateBoard(board: Board) {
-    const sqrs = new Map<SquareName, Bhoomi>()
+    const sqrs = new Map<SquareName, Square>()
       .set('x0', new Naaglok(board, 'x0'))
       .set('y0', new Naaglok(board, 'y0'))
       .set('x9', new Naaglok(board, 'x9'))
@@ -23,7 +23,7 @@ export default class Board {
       // Set YuddhBhumi
       for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
         name = `${ file }${ rank }` as SquareName;
-        sqrs.set(name, new Rajkila(board, name));
+        sqrs.set(name, new YuddhBhoomi(board, name));
       }
     }
 
@@ -53,7 +53,7 @@ export default class Board {
     return [blackLegals, whiteLegals];
   }
 
-  squares: Map<SquareName, Bhoomi>;
+  squares: Map<SquareName, Square>;
   players: [Player, Player];
   isWhiteTurn: boolean;
 
@@ -65,6 +65,13 @@ export default class Board {
       new Player(this, Alliance.BLACK, blackLegals),
       new Player(this, Alliance.WHITE, whiteLegals)
     ];
+  }
+  
+  createState() {
+    return new BoardState(this);
+  }
+  restore(boardState: BoardState) {
+
   }
 
   getSquareAt(index: number) {

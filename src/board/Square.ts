@@ -1,5 +1,7 @@
-import Board from './Board';
-import Piece from '../pieces';
+import { Board } from '.';
+import { Piece } from '../pieces';
+import { NEIGHBOURS } from '../Utils';
+
 
 export enum SQUARE_FLAGS {
   x9, a9, b9, c9, d9, e9, f9, g9, h9, y9,
@@ -14,16 +16,45 @@ export enum SQUARE_FLAGS {
   x0, a0, b0, c0, d0, e0, f0, g0, h0, y0,
 };
 export type SquareName = keyof typeof SQUARE_FLAGS;
+export type ZoneName = 'raajkila' | 'naaglok' | 'yuddhbhumi' | 'viranbhumi';
+export class Zone {
+  static readonly RAAJKILA = new Zone('raajkila');
+  static readonly NAAGLOK = new Zone('naaglok');
+  static readonly YUDDHBHUMI = new Zone('yuddhbhumi');
+  static readonly VIRANBHUMI = new Zone('viranbhumi');
+  constructor(readonly name: ZoneName) {
 
-export default abstract class Bhoomi {
-  protected isNaaglok = false;
-  protected isRajkila = false;
-  protected isViramBhumi = false;
-  protected isYuddhBhumi = false;
+  }
+}
+export default abstract class Square {
+  isNaaglok = false;
+  isRajkila = false;
+  isViramBhumi = false;
+  isYuddhBhumi = false;
   candidatePieces: Set<Piece> = new Set();
+  abstract nearbySquare(relativeIndex: number): Square | null;
 
-  constructor(readonly board: Board, readonly name: SquareName) {
+  constructor(readonly zone: Zone, readonly board: Board, readonly name: SquareName) {
 
+  }
+
+  isOfSameZoneAs(square: Square) {
+    return this.zone == square.zone;
+  }
+
+  isNearbySquare(square: Square) {
+
+  }
+
+  get isOfficerNearby() {
+    return true;
+  }
+  get isRoyalNearby() {
+    return NEIGHBOURS.some(index => {
+      const neighbourSquare = this.nearbySquare(index);
+      if (!neighbourSquare || !this.isOfSameZoneAs(neighbourSquare)) return false;
+      return neighbourSquare.piece?.isRoyal;
+    });
   }
 
   get index() {
@@ -38,33 +69,60 @@ export default abstract class Bhoomi {
   get isEmpty() {
     return this.piece === null;
   }
-}
-
-export class Naaglok extends Bhoomi {
-  isNaaglok = true;
-  constructor(board: Board, name: SquareName) {
-    super(board, name);
+  get file() {
+    return this.name[0];
+  }
+  get rank() {
+    return this.name[1];
   }
 }
 
-export class Rajkila extends Bhoomi {
-  isRajkila = true;
-  constructor(board: Board, name: SquareName) {
-    super(board, name);
-  }
-}
-
-export class ViramBhoomi extends Bhoomi {
-  isViramBhumi = true;
-  constructor(board: Board, name: SquareName) {
-    super(board, name);
-  }
-}
-
-export class YuddhBhoomi extends Bhoomi {
+export class YuddhBhoomi extends Square {
   isYuddhBhumi = true;
   constructor(board: Board, name: SquareName) {
-    super(board, name);
+    super(Zone.YUDDHBHUMI, board, name);
+  }
+  nearbySquare(relativeIndex: number) {
+    return this.board.getSquareAt(this.index + relativeIndex)!;
+  }
+}
+
+export class Rajkila extends Square {
+  isRajkila = true;
+  constructor(board: Board, name: SquareName) {
+    super(Zone.RAAJKILA, board, name);
+  }
+
+  nearbySquare(relativeIndex: number) {
+    const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
+    return !neighbourSquare ? null : neighbourSquare;
+  }
+}
+
+export class ViramBhoomi extends Square {
+  isViramBhumi = true;
+  constructor(board: Board, name: SquareName) {
+    super(Zone.VIRANBHUMI, board, name);
+  }
+
+  nearbySquare(relativeIndex: number) {
+    const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex)!;
+    return neighbourSquare.isViramBhumi ? null : neighbourSquare;
+  }
+}
+
+export class Naaglok extends Square {
+  isNaaglok = true;
+  constructor(board: Board, name: SquareName) {
+    super(Zone.NAAGLOK, board, name);
+  }
+
+  nearbySquare(relativeIndex: number) {
+    const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
+    return (
+      !neighbourSquare || neighbourSquare.isNaaglok ||
+      neighbourSquare.isViramBhumi && this.name[0] != neighbourSquare.name[0]
+    ) ? null : neighbourSquare;
   }
 }
 

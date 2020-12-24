@@ -1,7 +1,6 @@
-import Alliance from './Alliance';
-import Move from '../board/Movement';
-import { SquareName } from '../board/Square';
-import Board from '../board/Board';
+import { Alliance } from '.';
+import { Board, Move } from '../board';
+
 
 export default class Player {
   hasDeclaredWar = false;
@@ -14,6 +13,9 @@ export default class Player {
 
   }
 
+  setOnCheck() {
+
+  }
   get opponent() {
     return this.board.players[+(this.alliance == Alliance.BLACK)];
   }
