@@ -1,56 +1,40 @@
-import { Square, Move, BoardState } from '.';
-import { Piece } from '../pieces';
+import { BoardState, CastleZone, ForbiddenZone, Move, Square, SquareName, SQUARE_FLAGS, TruceZone, WarZone } from '.';
+import { Piece, Rajrishi } from '../pieces';
 import { Alliance, Player } from '../player';
-import { BOARD_SIZE, TOTAL_SQUARES } from '../Utils';
-import { SquareName, YuddhBhoomi, Naaglok, Rajkila, ViramBhoomi, SQUARE_FLAGS } from '.';
+import { BOARD_SIZE, NEIGHBOURS, TOTAL_SQUARES } from '../Utils';
 
 
 export default class Board {
   static generateBoard(board: Board) {
     const sqrs = new Map<SquareName, Square>()
-      .set('x0', new Naaglok(board, 'x0'))
-      .set('y0', new Naaglok(board, 'y0'))
-      .set('x9', new Naaglok(board, 'x9'))
-      .set('y9', new Naaglok(board, 'y9'));
+      .set('x0', new ForbiddenZone(board, 'x0'))
+      .set('y0', new ForbiddenZone(board, 'y0'))
+      .set('x9', new ForbiddenZone(board, 'x9'))
+      .set('y9', new ForbiddenZone(board, 'y9'));
 
     for (const file of 'abcdefgh') {
       // Set Rajkila
       let name = `${ file }0` as SquareName;
-      sqrs.set(name, new Rajkila(board, name));
+      sqrs.set(name, new CastleZone(board, name, Alliance.BLACK));
       name = `${ file }9` as SquareName;
-      sqrs.set(name, new Rajkila(board, name));
+      sqrs.set(name, new CastleZone(board, name, Alliance.WHITE));
 
       // Set YuddhBhumi
       for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
         name = `${ file }${ rank }` as SquareName;
-        sqrs.set(name, new YuddhBhoomi(board, name));
+        sqrs.set(name, new WarZone(board, name));
       }
     }
 
     // Set ViramBhumi on X and Y file
     for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
       let name = `x${ rank }` as SquareName;
-      sqrs.set(name, new ViramBhoomi(board, name));
+      sqrs.set(name, new TruceZone(board, name));
       name = `y${ rank }` as SquareName;
-      sqrs.set(name, new ViramBhoomi(board, name));
+      sqrs.set(name, new TruceZone(board, name));
     }
 
     return sqrs;
-  }
-
-  private calculateLegalMoves(boardAlignment: (Piece | null)[]) {
-    const whiteLegals: Move[] = [], blackLegals: Move[] = [];
-    for (const piece of boardAlignment) {
-      if (!piece) continue;
-      const legals = piece.calculateLegalMoves(this);
-      for (const move of legals) move.destinationSquare.candidatePieces.add(piece);
-      if (piece.alliance == Alliance.WHITE) {
-        whiteLegals.push(...legals);
-      } else {
-        blackLegals.push(...legals);
-      }
-    }
-    return [blackLegals, whiteLegals];
   }
 
   squares: Map<SquareName, Square>;
@@ -66,7 +50,51 @@ export default class Board {
       new Player(this, Alliance.WHITE, whiteLegals)
     ];
   }
+  private calculateLegalMoves(boardAlignment: (Piece | null)[]) {
+    this.handleFreezingPieces(boardAlignment);
+    const whiteLegals: Move[] = [], blackLegals: Move[] = [];
+    for (const piece of boardAlignment) {
+      if (!piece) continue;
+      const legals = piece.calculateLegalMoves(this);
+      for (const move of legals) move.destinationSquare.candidatePieces.add(piece);
+      if (piece.alliance == Alliance.WHITE) {
+        whiteLegals.push(...legals);
+      } else {
+        blackLegals.push(...legals);
+      }
+    }
+    return [blackLegals, whiteLegals];
+  }
   
+  private handleFreezingPieces(boardAlignment: (Piece | null)[]) {
+    const rajrishis = boardAlignment.filter(piece => piece?.isGodman) as [Rajrishi, Rajrishi];
+    /* const RS1 = this.getSquareAt(rajrishis[0].position)!;
+    const RS2 = this.getSquareAt(rajrishis[1].position)!;
+    if (RS1.isOfSameZoneAs(RS2) && RS1.isNearbySquare(RS2)) {
+      rajrishis[0].isFreezed = rajrishis[0].isFreezed = true;
+      return;
+    } */
+
+    const freezeSurroundings = (rajrishi: Rajrishi) => {
+      const currentSquare = this.getSquareAt(rajrishi.position)!;
+      const isRoyalNearby = currentSquare.isOpponentRoyalNearby();
+      if (isRoyalNearby) {
+        rajrishi.isFreezed = true;
+        return;
+      }
+      for (const relativeIndex of NEIGHBOURS) {
+        const neighbourSquare = currentSquare.getNearbySquare(relativeIndex);
+        if (!neighbourSquare) continue;
+        if (neighbourSquare.isOccupied && neighbourSquare.piece!.isOfficer && !rajrishi.isOfSameSide(neighbourSquare.piece)) {
+          neighbourSquare.piece!.isFreezed = true;
+        }
+      }
+    };
+    freezeSurroundings(rajrishis[0]);
+    freezeSurroundings(rajrishis[1])
+
+  }
+
   createState() {
     return new BoardState(this);
   }

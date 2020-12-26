@@ -5,22 +5,18 @@ import { Piece, PieceType } from '.';
 
 
 export default abstract class RoyalPiece extends Piece {
-  constructor(type: PieceType, position: number, alliance: Alliance) {
-    super(type, position, alliance);
-  }
-
   calculateLegalMoves(board: Board) {
     const moves: Move[] = [];
     const currentSquare = board.getSquareAt(this.position)!;
-    const isRoyalNearby = currentSquare.isRoyalNearby;
+    const isRoyalNearby = currentSquare.isRoyalNearby();
 
     for (const candidateSquareIndex of NEIGHBOURS) {
-      const destinationSquare = currentSquare.nearbySquare(candidateSquareIndex);
+      const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
       if (!destinationSquare) continue;
       if (destinationSquare.isOfSameZoneAs(currentSquare)) {
         if (destinationSquare.isEmpty) {
           moves.push(new Move(this, destinationSquare));
-        } else if (this.alliance == destinationSquare.piece!.alliance) {
+        } else if (this.isOfSameSide(destinationSquare.piece)) {
           moves.push(new AttackMove(this, destinationSquare));
         }
       } else if (isRoyalNearby && destinationSquare.isEmpty) {

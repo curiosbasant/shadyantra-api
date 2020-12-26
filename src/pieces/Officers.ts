@@ -1,33 +1,22 @@
 import { Piece, PieceType } from '.';
 import { Board, Move, AttackMove } from '../board';
 import { Alliance } from '../player';
-import { KNIGHT, NEIGHBOURS } from '../Utils';
+import { BOARD_SIZE, KNIGHT, NEIGHBOURS, PLUS } from '../Utils';
 
 export default class OfficerPiece extends Piece {
-  isFreezed = false;
-  constructor(type: PieceType, position: number, alliance: Alliance) {
-    super(type, position, alliance);
-  }
   calculateLegalMoves(board: Board) {
     const currentSquare = board.getSquareAt(this.position)!;
 
-    if (currentSquare.isViramBhumi) {
+    if (this.alliance == board.activePlayer.alliance) {
+      
+    } else if (this.isFreezed) {
+      return this.takeControl(board);
+    }
+    
+    if (currentSquare.isTruceZone) {
       return this.bailPath(board);
     }
     return this.vectorMove(board);
-  }
-  protected bailPath(board: Board) {
-    const moves: Move[] = [];
-
-    for (const candidateSquareIndex of NEIGHBOURS) {
-      const destinationIndex = this.position + candidateSquareIndex;
-      const destinationSquare = board.getSquareAt(destinationIndex)!;
-      if (destinationSquare.isYuddhBhumi && destinationSquare.isEmpty) {
-        moves.push(new Move(this, destinationSquare));
-      }
-    }
-
-    return moves;
   }
   protected vectorMove(board: Board) {
     const moves = this.type.legals.map<Move[]>(direction => this.lineMove(board, direction)).flat();
@@ -42,20 +31,15 @@ export default class OfficerPiece extends Piece {
       destinationIndex += direction;
       const destinationSquare = board.getSquareAt(destinationIndex)!;
 
-      if (destinationSquare.isYuddhBhumi) {
+      if (destinationSquare.isWarZone) {
         if (destinationSquare.isEmpty) {
           moves.push(new Move(this, destinationSquare));
           continue;
-        } else {
-          if (this.alliance == destinationSquare.piece!.alliance) {
-            moves.push(new AttackMove(this, destinationSquare));
-          }
-          break;
+        } else if (this.canAttack(destinationSquare.piece)) {
+          moves.push(new AttackMove(this, destinationSquare));
         }
-      }
-
-      // push move and break if file is x or y
-      if ((destinationSquare.isViramBhumi || destinationSquare.isNaaglok) && destinationSquare.isEmpty) {
+        // push move and break if file is x or y
+      } else if (!destinationSquare.isCastle && destinationSquare.isEmpty) {
         moves.push(new Move(this, destinationSquare));
       }
       break;
@@ -63,7 +47,65 @@ export default class OfficerPiece extends Piece {
     return moves;
   }
 
-  protected staticMove(board: Board, candidateIndexes: number[]) {
+  takeControl(board: Board) {
+    const moves: Move[] = [];
+    for (const square of board.squares.values()) {
+      // continue if sqare is forbidden, castle or has checks
+      if (square.isForbiddenZone || square.isCastle || square.candidatePieces.size) continue;
+      moves.push(new Move(this, square));
+
+    }
+    return moves;
+  }
+
+  canAttack(piece: Piece | null) {
+    return super.canAttack(piece) && !piece!.isFreezed;
+  }
+}
+
+class KnightLikeOfficer extends OfficerPiece {
+  protected knightMove(board: Board, needsResource = false) {
+    const currentSquare = board.getSquareAt(this.position)!;
+    const moves: Move[] = [];
+    for (const plusIndex of PLUS) {
+      const resourceSquare = currentSquare.getNearbySquare(plusIndex);
+      if (!resourceSquare) continue;
+      const isResourceAvailable = !needsResource || this.isOfSameSide(resourceSquare.piece);
+      const relative = this.position + plusIndex * 2;
+      const checkSquare = (candidateIndex = 0) => {
+        const destinationSquare = board.getSquareAt(candidateIndex + relative)!;
+        if (destinationSquare.isCastle) return;
+        if (destinationSquare.isEmpty) {
+          moves.push(new Move(this, destinationSquare));
+        } else if (destinationSquare.isWarZone && isResourceAvailable && this.canAttack(destinationSquare.piece)) {
+          moves.push(new AttackMove(this, destinationSquare));
+        }
+      };
+      const adjacentIndex = Math.abs(plusIndex) == 1 ? BOARD_SIZE : 1;
+      checkSquare(-adjacentIndex);
+      checkSquare(adjacentIndex);
+      needsResource && checkSquare();
+    }
+
+    return moves;
+  }
+}
+
+export class Senapati extends KnightLikeOfficer {
+  constructor(position: number, alliance: Alliance) {
+    super(Piece.SENAPATI, position, alliance);
+  }
+
+  calculateLegalMoves(board: Board) {
+    const currentSquare = board.getSquareAt(this.position)!;
+    if (currentSquare.isTruceZone) return this.bailPath(board);
+
+    const moves = this.vectorMove(board);
+    moves.push(...this.knightMove(board));
+    return moves;
+  }
+
+  private _knightMove(board: Board, candidateIndexes: number[]) {
     const moves: Move[] = [];
     for (const candidateSquareIndex of candidateIndexes) {
       const destinationIndex = this.position + candidateSquareIndex;
@@ -72,7 +114,7 @@ export default class OfficerPiece extends Piece {
 
       if (destinationSquare.isEmpty) {
         moves.push(new Move(this, destinationSquare));
-      } else if (this.alliance == destinationSquare.piece!.alliance) {
+      } else if (this.canAttack(destinationSquare.piece)) {
         moves.push(new AttackMove(this, destinationSquare));
       }
     }
@@ -80,26 +122,14 @@ export default class OfficerPiece extends Piece {
   }
 }
 
-export class Senapati extends OfficerPiece {
+export class Ashvarohi extends KnightLikeOfficer {
   constructor(position: number, alliance: Alliance) {
-    super(Piece.SENAPATI, position, alliance);
+    super(Piece.ASHVAROHI, position, alliance);
   }
 
   calculateLegalMoves(board: Board) {
     const currentSquare = board.getSquareAt(this.position)!;
-    if (currentSquare.isViramBhumi) {
-      return this.bailPath(board);
-    }
-
-    const moves = this.vectorMove(board);
-    moves.push(...this.staticMove(board, [...KNIGHT]));
-    return moves;
-  }
-}
-
-export class Ashvarohi extends OfficerPiece {
-  constructor(position: number, alliance: Alliance) {
-    super(Piece.ASHVAROHI, position, alliance);
+    return currentSquare.isTruceZone ? this.bailPath(board) : this.knightMove(board, true);
   }
 }
 export class Maharathi extends OfficerPiece {

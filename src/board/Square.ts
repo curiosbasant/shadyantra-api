@@ -1,5 +1,6 @@
 import { Board } from '.';
-import { Piece } from '../pieces';
+import { Piece, Post } from '../pieces';
+import { Alliance } from '../player';
 import { NEIGHBOURS } from '../Utils';
 
 
@@ -16,45 +17,58 @@ export enum SQUARE_FLAGS {
   x0, a0, b0, c0, d0, e0, f0, g0, h0, y0,
 };
 export type SquareName = keyof typeof SQUARE_FLAGS;
-export type ZoneName = 'raajkila' | 'naaglok' | 'yuddhbhumi' | 'viranbhumi';
+export type ZoneName = 'Castle' | 'Forbidden Zone' | 'War Zone' | 'Truce Zone';
 export class Zone {
-  static readonly RAAJKILA = new Zone('raajkila');
-  static readonly NAAGLOK = new Zone('naaglok');
-  static readonly YUDDHBHUMI = new Zone('yuddhbhumi');
-  static readonly VIRANBHUMI = new Zone('viranbhumi');
+  static readonly CASTLE = new Zone('Castle');
+  static readonly FORBIDDEN_ZONE = new Zone('Forbidden Zone');
+  static readonly WAR_ZONE = new Zone('War Zone');
+  static readonly TRUCE_ZONE = new Zone('Truce Zone');
   constructor(readonly name: ZoneName) {
 
   }
 }
 export default abstract class Square {
-  isNaaglok = false;
-  isRajkila = false;
-  isViramBhumi = false;
-  isYuddhBhumi = false;
   candidatePieces: Set<Piece> = new Set();
-  abstract nearbySquare(relativeIndex: number): Square | null;
+  /** Returns the nearby square of the same zone */
+  abstract getNearbySquare(relativeIndex: number): Square | null;
 
-  constructor(readonly zone: Zone, readonly board: Board, readonly name: SquareName) {
-
+  constructor(protected readonly board: Board, private readonly zone: Zone, readonly name: SquareName) {
   }
 
-  isOfSameZoneAs(square: Square) {
-    return this.zone == square.zone;
+  /** Checks if other square is of same zone  */
+  isOfSameZoneAs(square: Square | null) {
+    return this.zone == square?.zone;
   }
 
+/** Checks if other square is a neighbour  */
   isNearbySquare(square: Square) {
-
+    const differenceIndex = this.index - square.index;
+    return NEIGHBOURS.includes(differenceIndex);
   }
-
-  get isOfficerNearby() {
-    return true;
-  }
-  get isRoyalNearby() {
+  
+  private isPostNearby(post: Post, allianceToCheck: Alliance) {
     return NEIGHBOURS.some(index => {
-      const neighbourSquare = this.nearbySquare(index);
-      if (!neighbourSquare || !this.isOfSameZoneAs(neighbourSquare)) return false;
-      return neighbourSquare.piece?.isRoyal;
+      const neighbourSquare = this.getNearbySquare(index);
+      return this.isOfSameZoneAs(neighbourSquare) &&
+        neighbourSquare!.piece?.alliance == allianceToCheck &&
+        neighbourSquare!.piece!.type.post == post;
     });
+  }
+  /** Checks if any Officer is nearby  */
+  isOfficerNearby(allianceToCheck = this.board.activePlayer.alliance) {
+    return this.isPostNearby(Post.OFFICER, allianceToCheck);
+  }
+  /** Checks if any Royal is nearby  */
+  isRoyalNearby(allianceToCheck = this.board.activePlayer.alliance) {
+    return this.isPostNearby(Post.ROYAL, allianceToCheck);
+  }
+  isOpponentRoyalNearby() {
+    return this.isRoyalNearby(this.board.opponentPlayer.alliance);
+  }
+  /** Checks if any Godman is nearby  */
+
+  isGodmanNearby() {
+
   }
 
   get index() {
@@ -75,53 +89,62 @@ export default abstract class Square {
   get rank() {
     return this.name[1];
   }
+
+  get isWarZone() {
+    return this.zone == Zone.WAR_ZONE;
+  }
+  get isTruceZone() {
+    return this.zone == Zone.TRUCE_ZONE;
+  }
+  get isCastle() {
+    return this.zone == Zone.CASTLE;
+  }
+  get isForbiddenZone() {
+    return this.zone == Zone.FORBIDDEN_ZONE;
+  }
 }
 
-export class YuddhBhoomi extends Square {
-  isYuddhBhumi = true;
+export class WarZone extends Square {
   constructor(board: Board, name: SquareName) {
-    super(Zone.YUDDHBHUMI, board, name);
+    super(board, Zone.WAR_ZONE, name);
   }
-  nearbySquare(relativeIndex: number) {
+  getNearbySquare(relativeIndex: number) {
     return this.board.getSquareAt(this.index + relativeIndex)!;
   }
 }
 
-export class Rajkila extends Square {
-  isRajkila = true;
-  constructor(board: Board, name: SquareName) {
-    super(Zone.RAAJKILA, board, name);
+export class CastleZone extends Square {
+  constructor(board: Board, name: SquareName, readonly alliance: Alliance) {
+    super(board, Zone.CASTLE, name);
   }
 
-  nearbySquare(relativeIndex: number) {
+  getNearbySquare(relativeIndex: number) {
     const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
     return !neighbourSquare ? null : neighbourSquare;
   }
 }
 
-export class ViramBhoomi extends Square {
-  isViramBhumi = true;
+export class TruceZone extends Square {
   constructor(board: Board, name: SquareName) {
-    super(Zone.VIRANBHUMI, board, name);
+    super(board, Zone.TRUCE_ZONE, name);
   }
 
-  nearbySquare(relativeIndex: number) {
+  getNearbySquare(relativeIndex: number) {
     const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex)!;
-    return neighbourSquare.isViramBhumi ? null : neighbourSquare;
+    return neighbourSquare.isTruceZone ? null : neighbourSquare;
   }
 }
 
-export class Naaglok extends Square {
-  isNaaglok = true;
+export class ForbiddenZone extends Square {
   constructor(board: Board, name: SquareName) {
-    super(Zone.NAAGLOK, board, name);
+    super(board, Zone.FORBIDDEN_ZONE, name);
   }
 
-  nearbySquare(relativeIndex: number) {
+  getNearbySquare(relativeIndex: number) {
     const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
     return (
-      !neighbourSquare || neighbourSquare.isNaaglok ||
-      neighbourSquare.isViramBhumi && this.name[0] != neighbourSquare.name[0]
+      !neighbourSquare || neighbourSquare.isForbiddenZone ||
+      neighbourSquare.isTruceZone && this.name[0] != neighbourSquare.name[0]
     ) ? null : neighbourSquare;
   }
 }

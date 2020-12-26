@@ -1,7 +1,6 @@
 import { Piece } from '.';
-import { Board, Move, AttackMove } from '../board';
+import { AttackMove, Board, Move } from '../board';
 import { Alliance } from '../player';
-import { NEIGHBOURS } from '../Utils';
 
 
 export default class Pyada extends Piece {
@@ -11,20 +10,19 @@ export default class Pyada extends Piece {
 
   calculateLegalMoves(board: Board) {
     const moves: Move[] = [];
-    
-    const isOfficerNearby = cdd => {
-      const piece = board.builder.config[this.position + cdd];
-      return !piece ? false : piece.isOfficer;
-    };
-    if (!NEIGHBOURS.some(isOfficerNearby)) return moves;
+    const currentSquare = board.getSquareAt(this.position)!;
+
+    if (!currentSquare.isOfficerNearby()) return moves;
 
     for (const candidateSquareIndex of this.type.legals) {
       const destinationIndex = this.position + this.alliance.direction * candidateSquareIndex;
-      const destinationSquare = board.getSquareAt(destinationIndex);
-      if (destinationSquare === undefined) continue;
+      const destinationSquare = board.getSquareAt(destinationIndex)!;
+
+      if (destinationSquare.isCastle) break;
+      if (destinationSquare.isTruceZone) continue;
       if (destinationSquare.isEmpty) {
         moves.push(new Move(this, destinationSquare));
-      } else if (this.alliance == destinationSquare.piece!.alliance) {
+      } else if (!currentSquare.isTruceZone && !this.isOfSameSide(destinationSquare.piece)) {
         moves.push(new AttackMove(this, destinationSquare));
       }
     }
