@@ -1,6 +1,7 @@
 import { Piece } from '.';
 import { AttackMove, Board, CastleZone, Move } from '../board';
 import { Alliance } from '../player';
+import { NEIGHBOURS } from '../Utils';
 
 
 export default class Rajrishi extends Piece {
@@ -18,5 +19,29 @@ export default class Rajrishi extends Piece {
       moves.push(new Move(this, square));
     }
     return moves;
+  }
+
+  moveTo(move: Move) {
+    return new Rajrishi(move.destinationSquare.index, move.movedPiece.alliance);
+  }
+
+  freezeSurroundingOpponentOfficers(board: Board) {
+    const currentSquare = board.getSquareAt(this.position)!;
+    const isOpponentRoyalNearby = currentSquare.isOpponentRoyalNearby();
+    if (isOpponentRoyalNearby) {
+      this.isFreezed = true;
+      return;
+    }
+    for (const relativeIndex of NEIGHBOURS) {
+      const neighbourSquare = currentSquare.getNearbySquare(relativeIndex);
+      if (!neighbourSquare) continue;
+      if (neighbourSquare.isOccupied && neighbourSquare.piece!.isOfficer && !this.isOfSameSide(neighbourSquare.piece)) {
+        neighbourSquare.piece!.isFreezed = true;
+      }
+    }
+  }
+
+  get isRajrishi() {
+    return true;
   }
 }

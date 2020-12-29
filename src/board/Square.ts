@@ -32,7 +32,7 @@ export default abstract class Square {
   /** Returns the nearby square of the same zone */
   abstract getNearbySquare(relativeIndex: number): Square | null;
 
-  constructor(protected readonly board: Board, private readonly zone: Zone, readonly name: SquareName) {
+  constructor(readonly board: Board, private readonly zone: Zone, readonly name: SquareName) {
   }
 
   /** Checks if other square is of same zone  */
@@ -46,27 +46,34 @@ export default abstract class Square {
     return NEIGHBOURS.includes(differenceIndex);
   }
   
-  private isPostNearby(post: Post, allianceToCheck: Alliance) {
+  private isPostNearby(post: Post) {
     return NEIGHBOURS.some(index => {
       const neighbourSquare = this.getNearbySquare(index);
       return this.isOfSameZoneAs(neighbourSquare) &&
-        neighbourSquare!.piece?.alliance == allianceToCheck &&
-        neighbourSquare!.piece!.type.post == post;
+        neighbourSquare!.isOccupied &&
+        neighbourSquare!.piece!.type.post == post &&
+        neighbourSquare!.piece!.isOfSameSide(this.piece)
     });
   }
   /** Checks if any Officer is nearby  */
-  isOfficerNearby(allianceToCheck = this.board.activePlayer.alliance) {
-    return this.isPostNearby(Post.OFFICER, allianceToCheck);
+  isOfficerNearby() {
+    return this.isPostNearby(Post.OFFICER);
   }
   /** Checks if any Royal is nearby  */
-  isRoyalNearby(allianceToCheck = this.board.activePlayer.alliance) {
-    return this.isPostNearby(Post.ROYAL, allianceToCheck);
+  isRoyalNearby() {
+    return this.isPostNearby(Post.ROYAL);
   }
   isOpponentRoyalNearby() {
-    return this.isRoyalNearby(this.board.opponentPlayer.alliance);
+    return NEIGHBOURS.some(index => {
+      const neighbourSquare = this.getNearbySquare(index);
+      return this.isOfSameZoneAs(neighbourSquare) &&
+        neighbourSquare!.isOccupied &&
+        neighbourSquare!.piece!.isRoyal &&
+        !neighbourSquare!.piece!.isOfSameSide(this.piece);
+    });
   }
-  /** Checks if any Godman is nearby  */
 
+/** Checks if any Godman is nearby  */
   isGodmanNearby() {
 
   }
@@ -130,8 +137,8 @@ export class TruceZone extends Square {
   }
 
   getNearbySquare(relativeIndex: number) {
-    const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex)!;
-    return neighbourSquare.isTruceZone ? null : neighbourSquare;
+    const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
+    return (!neighbourSquare || neighbourSquare.isTruceZone) ? null : neighbourSquare;
   }
 }
 

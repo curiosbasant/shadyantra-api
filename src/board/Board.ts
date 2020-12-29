@@ -1,32 +1,28 @@
 import { BoardState, CastleZone, ForbiddenZone, Move, Square, SquareName, SQUARE_FLAGS, TruceZone, WarZone } from '.';
 import { Piece, Rajrishi } from '../pieces';
 import { Alliance, Player } from '../player';
-import { BOARD_SIZE, NEIGHBOURS, TOTAL_SQUARES } from '../Utils';
+import { BOARD_LAYOUT, BOARD_SIZE, NEIGHBOURS, TOTAL_SQUARES } from '../Utils';
 
 
 export default class Board {
   static generateBoard(board: Board) {
-    const sqrs = new Map<SquareName, Square>()
-      .set('x0', new ForbiddenZone(board, 'x0'))
-      .set('y0', new ForbiddenZone(board, 'y0'))
-      .set('x9', new ForbiddenZone(board, 'x9'))
-      .set('y9', new ForbiddenZone(board, 'y9'));
+    const sqrs = new Map<SquareName, Square>();
 
     for (const file of 'abcdefgh') {
-      // Set Rajkila
+      // Set Castle
       let name = `${ file }0` as SquareName;
       sqrs.set(name, new CastleZone(board, name, Alliance.BLACK));
       name = `${ file }9` as SquareName;
       sqrs.set(name, new CastleZone(board, name, Alliance.WHITE));
 
-      // Set YuddhBhumi
+      // Set WarZone
       for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
         name = `${ file }${ rank }` as SquareName;
         sqrs.set(name, new WarZone(board, name));
       }
     }
 
-    // Set ViramBhumi on X and Y file
+    // Set TruceZone on X and Y file
     for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
       let name = `x${ rank }` as SquareName;
       sqrs.set(name, new TruceZone(board, name));
@@ -34,7 +30,12 @@ export default class Board {
       sqrs.set(name, new TruceZone(board, name));
     }
 
-    return sqrs;
+    return sqrs
+      // Set ForbiddenZone
+      .set('x0', new ForbiddenZone(board, 'x0'))
+      .set('y0', new ForbiddenZone(board, 'y0'))
+      .set('x9', new ForbiddenZone(board, 'x9'))
+      .set('y9', new ForbiddenZone(board, 'y9'));
   }
 
   squares: Map<SquareName, Square>;
@@ -44,55 +45,33 @@ export default class Board {
   constructor(readonly builder: Builder, isWhiteTurn = true) {
     this.isWhiteTurn = isWhiteTurn;
     this.squares = Board.generateBoard(this);
-    const [blackLegals, whiteLegals] = this.calculateLegalMoves(builder.config);
+    // const [blackLegals, whiteLegals] = this.calculateLegalMoves(builder.config);
+    /* const whiteLegals = this.calculateLegalMoves(builder.whitePieces);
+    const blackLegals = this.calculateLegalMoves(builder.blackPieces);
     this.players = [
-      new Player(this, Alliance.BLACK, blackLegals),
-      new Player(this, Alliance.WHITE, whiteLegals)
+      new Player(this, blackLegals, whiteLegals),
+      new Player(this, whiteLegals, blackLegals)
+    ]; */
+    this.players = [
+      new Player(this, Alliance.BLACK),
+      new Player(this, Alliance.WHITE),
     ];
+    this.opponentPlayer.calculateLegalMoves();
+    this.activePlayer.calculateLegalMoves();
   }
-  private calculateLegalMoves(boardAlignment: (Piece | null)[]) {
-    this.handleFreezingPieces(boardAlignment);
-    const whiteLegals: Move[] = [], blackLegals: Move[] = [];
-    for (const piece of boardAlignment) {
-      if (!piece) continue;
+  private calculateLegalMoves(pieces: Piece[]) {
+    const rajrishi = pieces.find(piece => piece instanceof Rajrishi) as Rajrishi;
+    if (!rajrishi) throw new Error("No rajrishi on board!");
+    rajrishi.freezeSurroundingOpponentOfficers(this);
+
+    const legalMoves: Move[] = [];
+    for (const piece of pieces) {
       const legals = piece.calculateLegalMoves(this);
-      for (const move of legals) move.destinationSquare.candidatePieces.add(piece);
-      if (piece.alliance == Alliance.WHITE) {
-        whiteLegals.push(...legals);
-      } else {
-        blackLegals.push(...legals);
-      }
+
+      legalMoves.push(...legals);
     }
-    return [blackLegals, whiteLegals];
-  }
-  
-  private handleFreezingPieces(boardAlignment: (Piece | null)[]) {
-    const rajrishis = boardAlignment.filter(piece => piece?.isGodman) as [Rajrishi, Rajrishi];
-    /* const RS1 = this.getSquareAt(rajrishis[0].position)!;
-    const RS2 = this.getSquareAt(rajrishis[1].position)!;
-    if (RS1.isOfSameZoneAs(RS2) && RS1.isNearbySquare(RS2)) {
-      rajrishis[0].isFreezed = rajrishis[0].isFreezed = true;
-      return;
-    } */
 
-    const freezeSurroundings = (rajrishi: Rajrishi) => {
-      const currentSquare = this.getSquareAt(rajrishi.position)!;
-      const isRoyalNearby = currentSquare.isOpponentRoyalNearby();
-      if (isRoyalNearby) {
-        rajrishi.isFreezed = true;
-        return;
-      }
-      for (const relativeIndex of NEIGHBOURS) {
-        const neighbourSquare = currentSquare.getNearbySquare(relativeIndex);
-        if (!neighbourSquare) continue;
-        if (neighbourSquare.isOccupied && neighbourSquare.piece!.isOfficer && !rajrishi.isOfSameSide(neighbourSquare.piece)) {
-          neighbourSquare.piece!.isFreezed = true;
-        }
-      }
-    };
-    freezeSurroundings(rajrishis[0]);
-    freezeSurroundings(rajrishis[1])
-
+    return legalMoves;
   }
 
   createState() {
@@ -111,24 +90,13 @@ export default class Board {
   }
 
   toString() {
-    return this.builder.config.reduce((str, piece, i) => {
-      let temp = piece ? piece.notation : '∙';
-      if (!((i + 1) % BOARD_SIZE)) temp += '\n';
-      return str + '  ' + temp;
-    }, '\n');
-    /* let str = '\n';
-    for (let rank = BHOOMI_SIZE - 1; rank > -1; rank--) {
-      for (const file of 'xabcdefghy') {
-        // @ts-ignore
-        str += this.squares.get(`${ file }${ rank }`)!.name + ' ';
-        str += this.alignment[5] ? this.alignment[5].notation : '-';
-      }
-      str += '\n';
-    }
-    return str; */
-
-
-    // return [...this.squares.values()].reduce((str, sqr, i) => str += `${sqr.name}${(i+1) % BHOOMI_SIZE ? ' ' : '\n'}`, '\n')
+    const layout = BOARD_LAYOUT.slice();
+    this.builder.config.map((piece, i) => {
+      if (!piece) return;
+      const row = (piece.position / BOARD_SIZE | 0) + 1;
+      layout[piece.position + row] = piece.notation;
+    });
+    return '\n' + layout.join('  ') + '\n';
   }
 
   print() {
@@ -143,11 +111,23 @@ export default class Board {
 }
 
 export class Builder {
-  config: (Piece | null)[] = Array(TOTAL_SQUARES).fill(null);
+  config: (Piece | null)[];
+
+  constructor(alignment = Array<Piece | null>(TOTAL_SQUARES).fill(null)) {
+    this.config = alignment;
+  }
 
   setPiece(piece: Piece) {
     this.config[piece.position] = piece;
     return this;
+  }
+  removePiece(index: number) {
+    this.config[index] = null;
+    return this;
+  }
+
+  copyAlignment() {
+    return this.config.slice();
   }
 
   build() {

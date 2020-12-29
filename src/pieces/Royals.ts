@@ -41,6 +41,13 @@ export class Rajendra extends RoyalPiece {
     moves = moves.filter(move => !move.destinationSquare.candidatePieces);
     return moves;
   }
+
+  moveTo(move: Move) {
+    return new Rajendra(move.destinationSquare.index, move.movedPiece.alliance);
+  }
+  get isRajendra() {
+    return true;
+  }
 }
 
 export class Arthshastri extends RoyalPiece {
@@ -48,10 +55,17 @@ export class Arthshastri extends RoyalPiece {
     super(Piece.ARTHSHASTRI, position, alliance);
   }
 
+  moveTo(move: Move) {
+    return new Arthshastri(move.destinationSquare.index, move.movedPiece.alliance);
+  }
 }
 export class Guptchar extends RoyalPiece {
   constructor(position: number, alliance: Alliance) {
     super(Piece.GUPTCHAR, position, alliance);
+  }
+
+  moveTo(move: Move) {
+    return new Guptchar(move.destinationSquare.index, move.movedPiece.alliance);
   }
 
 }

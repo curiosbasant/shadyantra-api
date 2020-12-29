@@ -28,4 +28,8 @@ export default class Pyada extends Piece {
     }
     return moves;
   }
+
+  moveTo(move: Move) {
+    return new Pyada(move.destinationSquare.index, move.movedPiece.alliance);
+  }
 }

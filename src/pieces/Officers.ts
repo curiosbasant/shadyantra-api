@@ -1,9 +1,9 @@
-import { Piece, PieceType } from '.';
-import { Board, Move, AttackMove } from '../board';
+import { Piece } from '.';
+import { AttackMove, Board, Move } from '../board';
 import { Alliance } from '../player';
-import { BOARD_SIZE, KNIGHT, NEIGHBOURS, PLUS } from '../Utils';
+import { BOARD_SIZE, PLUS } from '../Utils';
 
-export default class OfficerPiece extends Piece {
+abstract class OfficerPiece extends Piece {
   calculateLegalMoves(board: Board) {
     const currentSquare = board.getSquareAt(this.position)!;
 
@@ -23,7 +23,6 @@ export default class OfficerPiece extends Piece {
 
     return moves;
   }
-
   private lineMove(board: Board, direction: number) {
     const moves: Move[] = [];
     let destinationIndex = this.position;
@@ -63,14 +62,14 @@ export default class OfficerPiece extends Piece {
   }
 }
 
-class KnightLikeOfficer extends OfficerPiece {
+abstract class KnightLikeOfficer extends OfficerPiece {
   protected knightMove(board: Board, needsResource = false) {
     const currentSquare = board.getSquareAt(this.position)!;
     const moves: Move[] = [];
     for (const plusIndex of PLUS) {
       const resourceSquare = currentSquare.getNearbySquare(plusIndex);
-      if (!resourceSquare) continue;
-      const isResourceAvailable = !needsResource || this.isOfSameSide(resourceSquare.piece);
+      if (!currentSquare.isOfSameZoneAs(resourceSquare)) continue;
+      const isResourceAvailable = !needsResource || this.isOfSameSide(resourceSquare!.piece);
       const relative = this.position + plusIndex * 2;
       const checkSquare = (candidateIndex = 0) => {
         const destinationSquare = board.getSquareAt(candidateIndex + relative)!;
@@ -120,8 +119,11 @@ export class Senapati extends KnightLikeOfficer {
     }
     return moves;
   }
-}
 
+  moveTo(move: Move) {
+    return new Senapati(move.destinationSquare.index, move.movedPiece.alliance);
+  }
+}
 export class Ashvarohi extends KnightLikeOfficer {
   constructor(position: number, alliance: Alliance) {
     super(Piece.ASHVAROHI, position, alliance);
@@ -131,14 +133,26 @@ export class Ashvarohi extends KnightLikeOfficer {
     const currentSquare = board.getSquareAt(this.position)!;
     return currentSquare.isTruceZone ? this.bailPath(board) : this.knightMove(board, true);
   }
+
+  moveTo(move: Move) {
+    return new Ashvarohi(move.destinationSquare.index, move.movedPiece.alliance);
+  }
 }
 export class Maharathi extends OfficerPiece {
   constructor(position: number, alliance: Alliance) {
     super(Piece.MAHARATHI, position, alliance);
   }
+
+  moveTo(move: Move) {
+    return new Maharathi(move.destinationSquare.index, move.movedPiece.alliance);
+  }
 }
 export class Gajarohi extends OfficerPiece {
   constructor(position: number, alliance: Alliance) {
     super(Piece.GAJAROHI, position, alliance);
+  }
+
+  moveTo(move: Move) {
+    return new Gajarohi(move.destinationSquare.index, move.movedPiece.alliance);
   }
 }

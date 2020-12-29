@@ -52,16 +52,13 @@ export default abstract class Piece {
   }
 
   abstract calculateLegalMoves(board: Board): Move[];
+  abstract moveTo(move: Move): Piece;
 
   readonly notation: PieceNotation;
   isFreezed = false;
 
-  constructor(
-    readonly type: PieceType,
-    readonly position: number,
-    readonly alliance: Alliance
-  ) {
-    this.notation = type.symbol[alliance.color == 'WHITE' ? 'toUpperCase' : 'toLowerCase']() as PieceNotation;
+  constructor(readonly type: PieceType, readonly position: number, readonly alliance: Alliance) {
+    this.notation = type.symbol[alliance == Alliance.WHITE ? 'toUpperCase' : 'toLowerCase']() as PieceNotation;
   }
 
   private mote(sign: -1 | 1) {
@@ -124,5 +121,18 @@ export default abstract class Piece {
   }
   get isSoldier() {
     return this.type.post == Post.SOLDIER;
+  }
+  get isRajendra() {
+    return false;
+  }
+  get isRajrishi() {
+    return false;
+  }
+
+  get isWhite() {
+    return this.alliance == Alliance.WHITE;
+  }
+  get isBlack() {
+    return this.alliance == Alliance.BLACK;
   }
 }
