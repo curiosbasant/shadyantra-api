@@ -1,5 +1,5 @@
 import { Arthshastri, Ashvarohi, Gajarohi, Guptchar, Maharathi, PieceNotation, PieceSymbol, Pyada, Rajendra, Rajrishi, Senapati } from '.';
-import { Board, Move } from '../board';
+import { AttackMove, Board, Move, Square } from '../board';
 import { Alliance } from '../player';
 import { BOARD_SIZE, CROSS, NEIGHBOURS, PLUS } from '../Utils';
 
@@ -31,7 +31,7 @@ export default abstract class Piece {
   static readonly ASHVAROHI = new PieceType('H', 'ashvarohi', 4, [], Post.OFFICER);
   static readonly GAJAROHI = new PieceType('G', 'gajarohi', 3, CROSS, Post.OFFICER);
   static readonly GUPTCHAR = new PieceType('C', 'guptchar', 2, [], Post.ROYAL);
-  static readonly PYADA = new PieceType('P', 'pyada', 1, [BOARD_SIZE - 1, BOARD_SIZE, BOARD_SIZE + 1], Post.SOLDIER);
+  static readonly PYADA = new PieceType('P', 'pyada', 1, [], Post.SOLDIER);
 
   static readonly RANKS = Object.freeze([
     Piece.GUPTCHAR, Piece.GAJAROHI, Piece.ASHVAROHI, Piece.MAHARATHI, Piece.SENAPATI
@@ -61,6 +61,15 @@ export default abstract class Piece {
     this.notation = type.symbol[alliance == Alliance.WHITE ? 'toUpperCase' : 'toLowerCase']() as PieceNotation;
   }
 
+  createMove(square: Square, killIf = true) {
+    const moves: Move[] = [];
+    if (square.isEmpty) moves.push(new Move(this, square));
+    else if (killIf && this.canAttack(square.piece)) {
+      moves.push(new AttackMove(this, square));
+    }
+    return moves;
+  }
+
   private mote(sign: -1 | 1) {
     const index = this.type.value - 2;
     const nextRank = Piece.RANKS[index + sign];
@@ -81,13 +90,13 @@ export default abstract class Piece {
     return this.mote(-1);
   }
   /** Returns the path to WarZone  */
-  protected bailPath(board: Board) {
+  protected hostilePath(board: Board) {
     const moves: Move[] = [];
+    const currentSquare = board.getSquareAt(this.position)!;
 
     for (const candidateSquareIndex of NEIGHBOURS) {
-      const destinationIndex = this.position + candidateSquareIndex;
-      const destinationSquare = board.getSquareAt(destinationIndex)!;
-      if (destinationSquare.isWarZone && destinationSquare.isEmpty) {
+      const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
+      if (destinationSquare && destinationSquare.isEmpty && (destinationSquare.isWarZone || destinationSquare.isForbiddenZone)) {
         moves.push(new Move(this, destinationSquare));
       }
     }
@@ -97,12 +106,15 @@ export default abstract class Piece {
 
   /** Checks if can attack other piece  */
   canAttack(piece: Piece | null) {
-    return !(!piece || piece.isGodman || this.isOfSameSide(piece));
+    return !(!piece || piece.isGodman || this.isOwnSide(piece));
   }
 
   /** Checks if other piece is of same side  */
-  isOfSameSide(piece: Piece | null) {
+  isOwnSide(piece: Piece | null) {
     return piece?.alliance === this.alliance;
+  }
+  isEnemyOf(piece: Piece | null) {
+    return Boolean(piece) && this.alliance !== piece!.alliance;
   }
 
   /** Checks if other piece is nearby */

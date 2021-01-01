@@ -15,22 +15,11 @@ String.prototype.toCamelCase = function () {
 
 import ShadYantra from './board/ShadYantra';
 import ReadLine from 'readline';
-const readline = ReadLine.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
 
-
-const shadYantra = new ShadYantra();
-shadYantra.board.print();
-console.log(shadYantra.generateFEN());
-shadYantra.move('c2c3');
-shadYantra.move('e2e3');
-
-readline.on('line', input => {
+function onCommandInput(input: string) {
+  if (!input.length) return;
   const args = input.trim().split(/ +/);
-  console.log(input);
-  if (!args.length) return;
+  // console.log(args, input);
   const commandName = args.shift()!.toLowerCase();
   switch (commandName) {
     case 'move':
@@ -50,6 +39,26 @@ readline.on('line', input => {
       console.log('Not a valid command!');
       break;
   }
+}
+
+const readline = ReadLine.createInterface({
+  input: process.stdin,
+  output: process.stdout
 });
 
-console.log('Program Exited!');
+const shadYantra = new ShadYantra();
+shadYantra.board.print();
+console.log(shadYantra.generateFEN());
+
+shadYantra.move('a0b0');
+shadYantra.move('b0c0');
+
+readline.on('line', input => {
+  try {
+    onCommandInput(input);
+  } catch (error) {
+    console.error(error.message);
+  }
+});
+
+// console.log('Program Exited!');

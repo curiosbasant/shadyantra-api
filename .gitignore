@@ -4,3 +4,4 @@ private
 .vscode
 .DS_Store
 lib
+*.code-workspace

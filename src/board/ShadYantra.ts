@@ -44,7 +44,7 @@ export default class ShadYantra extends EventEmitter {
       f = resolve(squareRef.from);
       t = resolve(squareRef.to);
     }
-    const currentSquare = this.board.squares.get(f), destinationSquare = this.board.squares.get(t);
+    const currentSquare = this.board.getSquareWithName(f), destinationSquare = this.board.getSquareWithName(t);
     if (!currentSquare || !destinationSquare) {
       throw new Error("Invalid Square Provided!");
     }
@@ -82,7 +82,7 @@ export default class ShadYantra extends EventEmitter {
     }, '');
   }
   select(squareName: string) {
-    const square = this.board.squares.get(squareName as SquareName);
+    const square = this.board.getSquareWithName(squareName as SquareName);
     if (!square) throw new Error("That square doesnot exist");
     if (square.isEmpty) throw new Error("No piece on that square!");
     const validMoves = this.board.activePlayer.legalMoves.filter(move => move.movedPiece == square.piece);

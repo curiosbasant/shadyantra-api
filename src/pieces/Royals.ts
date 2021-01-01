@@ -1,25 +1,21 @@
 import { Board, Move, AttackMove } from '../board';
 import { Alliance } from '../player';
-import { NEIGHBOURS } from '../Utils';
+import { BOARD_SIZE, CROSS, NEIGHBOURS, PLUS } from '../Utils';
 import { Piece, PieceType } from '.';
 
 
 export default abstract class RoyalPiece extends Piece {
   calculateLegalMoves(board: Board) {
-    const moves: Move[] = [];
     const currentSquare = board.getSquareAt(this.position)!;
     const isRoyalNearby = currentSquare.isRoyalNearby();
+    // console.log(currentSquare.name, isRoyalNearby, currentSquare.piece?.type.name);
+    const moves: Move[] = [];
+    if (currentSquare.isTruceZone) return isRoyalNearby ? this.hostilePath(board) : moves;
 
     for (const candidateSquareIndex of NEIGHBOURS) {
       const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
-      if (!destinationSquare) continue;
-      if (destinationSquare.isOfSameZoneAs(currentSquare)) {
-        if (destinationSquare.isEmpty) {
-          moves.push(new Move(this, destinationSquare));
-        } else if (this.isOfSameSide(destinationSquare.piece)) {
-          moves.push(new AttackMove(this, destinationSquare));
-        }
-      } else if (isRoyalNearby && destinationSquare.isEmpty) {
+      // if (!destinationSquare) continue;
+      if (destinationSquare?.isEmpty && (isRoyalNearby || destinationSquare.isZoneSame(currentSquare))) {
         moves.push(new Move(this, destinationSquare));
       }
     }
@@ -32,13 +28,63 @@ export class Rajendra extends RoyalPiece {
     super(Piece.RAJENDRA, position, alliance);
   }
   calculateLegalMoves(board: Board) {
-    let moves = super.calculateLegalMoves(board);
     const currentSquare = board.getSquareAt(this.position)!;
-    // If king is in check
-    if (currentSquare.candidatePieces.size) board.activePlayer.setOnCheck();
+    const isRoyalNearby = currentSquare.isRoyalNearby();
+    const moves: Move[] = [];
+    if (currentSquare.isTruceZone) return isRoyalNearby ? this.hostilePath(board) : moves;
 
-    // restricting king to move in check
-    moves = moves.filter(move => !move.destinationSquare.candidatePieces);
+    for (const candidateSquareIndex of CROSS) {
+      const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
+      if (!destinationSquare) continue;
+
+      if (isRoyalNearby || currentSquare.isZoneSame(destinationSquare)) {
+        moves.push(...this.createMove(destinationSquare));
+      }
+    }
+
+    for (const plusIndex of PLUS) {
+      const destinationSquare = currentSquare.getNearbySquare(plusIndex);
+      if (!destinationSquare) continue;
+
+      const checkSquare = (candidateIndex = 0) => {
+        const destinationSquare = currentSquare.getNearbySquare(candidateIndex + plusIndex * 2);
+        if (destinationSquare && destinationSquare.isEmpty && !currentSquare.isZoneSame(destinationSquare)) {
+          moves.push(new Move(this, destinationSquare));
+        }
+      };
+      if (isRoyalNearby || currentSquare.isZoneSame(destinationSquare)) {
+        if (destinationSquare.isEmpty) {
+          moves.push(new Move(this, destinationSquare));
+        } else if (this.canAttack(destinationSquare.piece)) {
+          moves.push(new AttackMove(this, destinationSquare));
+        } else if (destinationSquare.piece!.isRoyal) {
+          const adjacentIndex = Math.abs(plusIndex) == 1 ? BOARD_SIZE : 1;
+          checkSquare(-adjacentIndex);
+          checkSquare();
+          checkSquare(adjacentIndex);
+        }
+      }
+    }
+    return moves;
+  }
+  _calculateLegalMoves(board: Board) {
+    const currentSquare = board.getSquareAt(this.position)!;
+    const isRoyalNearby = currentSquare.isRoyalNearby();
+    const moves: Move[] = [];
+    if (currentSquare.isTruceZone) return isRoyalNearby ? this.hostilePath(board) : moves;
+
+    for (const candidateSquareIndex of NEIGHBOURS) {
+      const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
+      if (!destinationSquare) continue;
+
+      if (isRoyalNearby || destinationSquare.isZoneSame(currentSquare)) {
+        if (destinationSquare.isEmpty) {
+          moves.push(new Move(this, destinationSquare));
+        } else if (!this.isOwnSide(destinationSquare.piece)) {
+          moves.push(new AttackMove(this, destinationSquare));
+        }
+      }
+    }
     return moves;
   }
 
@@ -67,5 +113,4 @@ export class Guptchar extends RoyalPiece {
   moveTo(move: Move) {
     return new Guptchar(move.destinationSquare.index, move.movedPiece.alliance);
   }
-
 }

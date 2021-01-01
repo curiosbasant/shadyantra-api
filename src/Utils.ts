@@ -24,7 +24,7 @@ export const KNIGHT = Object.freeze([
 
 export enum EVENT { MOVE = 'move', END = 'end', START = 'start', READY = 'ready', DEBUG = 'debug' };
 
-export const BOARD_LAYOUT = Array<string>((BOARD_SIZE + 1) ** 2).fill('∙')
+export const BOARD_LAYOUT = Array<string>((BOARD_SIZE + 1) ** 2).fill('·')
   .map((val, i) => i % (BOARD_SIZE + 1) ? val : `│\n${ 9 - (i / BOARD_SIZE | 0) } │`);
 BOARD_LAYOUT[1] = BOARD_LAYOUT[10] = BOARD_LAYOUT[100] = BOARD_LAYOUT[109] = '#';
 const temp = '   ' + '-'.repeat(32);

@@ -17,27 +17,31 @@ export enum SQUARE_FLAGS {
   x0, a0, b0, c0, d0, e0, f0, g0, h0, y0,
 };
 export type SquareName = keyof typeof SQUARE_FLAGS;
-export type ZoneName = 'Castle' | 'Forbidden Zone' | 'War Zone' | 'Truce Zone';
+export type ZoneName = 'Castle' | 'Forbidden Zone' | 'War Zone' | 'Truce Zone' | 'Mediate Zone';
 export class Zone {
   static readonly CASTLE = new Zone('Castle');
   static readonly FORBIDDEN_ZONE = new Zone('Forbidden Zone');
   static readonly WAR_ZONE = new Zone('War Zone');
   static readonly TRUCE_ZONE = new Zone('Truce Zone');
+  static readonly MEDIATE_ZONE = new Zone('Mediate Zone');
   constructor(readonly name: ZoneName) {
 
   }
 }
 export default abstract class Square {
-  candidatePieces: Set<Piece> = new Set();
-  /** Returns the nearby square of the same zone */
-  abstract getNearbySquare(relativeIndex: number): Square | null;
+  candidatePieces = new Set<Piece>();
+/** Returns the nearby square of the same zone */
 
   constructor(readonly board: Board, private readonly zone: Zone, readonly name: SquareName) {
   }
+  
+  getNearbySquare(relativeIndex: number) {
+    return this.board.getSquareAt(this.index + relativeIndex) || null;
+  }
 
   /** Checks if other square is of same zone  */
-  isOfSameZoneAs(square: Square | null) {
-    return this.zone == square?.zone;
+  isZoneSame(square: Square | null) {
+    return this.zone === square?.zone;
   }
 
 /** Checks if other square is a neighbour  */
@@ -48,28 +52,26 @@ export default abstract class Square {
   
   private isPostNearby(post: Post) {
     return NEIGHBOURS.some(index => {
-      const neighbourSquare = this.getNearbySquare(index);
-      return this.isOfSameZoneAs(neighbourSquare) &&
-        neighbourSquare!.isOccupied &&
-        neighbourSquare!.piece!.type.post == post &&
-        neighbourSquare!.piece!.isOfSameSide(this.piece)
+      const neighbourSquare = this.getNearbySquare(index)!;
+      return this.isZoneSame(neighbourSquare) &&
+        this.piece!.isOwnSide(neighbourSquare.piece) &&
+        neighbourSquare.piece!.type.post == post;
     });
   }
-  /** Checks if any Officer is nearby  */
+/** Checks if any Officer is nearby in same zone */
   isOfficerNearby() {
     return this.isPostNearby(Post.OFFICER);
   }
-  /** Checks if any Royal is nearby  */
+/** Checks if any Royal is nearby in same zone */
   isRoyalNearby() {
     return this.isPostNearby(Post.ROYAL);
   }
   isOpponentRoyalNearby() {
     return NEIGHBOURS.some(index => {
-      const neighbourSquare = this.getNearbySquare(index);
-      return this.isOfSameZoneAs(neighbourSquare) &&
-        neighbourSquare!.isOccupied &&
-        neighbourSquare!.piece!.isRoyal &&
-        !neighbourSquare!.piece!.isOfSameSide(this.piece);
+      const neighbourSquare = this.getNearbySquare(index)!;
+      return this.isZoneSame(neighbourSquare) &&
+        this.piece!.isEnemyOf(neighbourSquare.piece) &&
+        neighbourSquare.piece!.isRoyal;
     });
   }
 
@@ -97,6 +99,9 @@ export default abstract class Square {
     return this.name[1];
   }
 
+  get isMediateZone() {
+    return this.zone == Zone.MEDIATE_ZONE;
+  }
   get isWarZone() {
     return this.zone == Zone.WAR_ZONE;
   }
@@ -111,23 +116,19 @@ export default abstract class Square {
   }
 }
 
+export class MediateZone extends Square {
+  constructor(board: Board, name: SquareName, readonly alliance: Alliance) {
+    super(board, Zone.MEDIATE_ZONE, name);
+  }
+}
 export class WarZone extends Square {
   constructor(board: Board, name: SquareName) {
     super(board, Zone.WAR_ZONE, name);
   }
-  getNearbySquare(relativeIndex: number) {
-    return this.board.getSquareAt(this.index + relativeIndex)!;
-  }
 }
-
 export class CastleZone extends Square {
   constructor(board: Board, name: SquareName, readonly alliance: Alliance) {
     super(board, Zone.CASTLE, name);
-  }
-
-  getNearbySquare(relativeIndex: number) {
-    const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
-    return !neighbourSquare ? null : neighbourSquare;
   }
 }
 
@@ -135,23 +136,26 @@ export class TruceZone extends Square {
   constructor(board: Board, name: SquareName) {
     super(board, Zone.TRUCE_ZONE, name);
   }
-
   getNearbySquare(relativeIndex: number) {
     const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
-    return (!neighbourSquare || neighbourSquare.isTruceZone) ? null : neighbourSquare;
+    if (!neighbourSquare) return null;
+    if (this.file == 'x') {
+      if (neighbourSquare.file == 'y') return null;
+    } else { // if file = 'y'
+      if (neighbourSquare.file == 'x') return null;
+    }
+    return neighbourSquare;
   }
 }
-
 export class ForbiddenZone extends Square {
   constructor(board: Board, name: SquareName) {
     super(board, Zone.FORBIDDEN_ZONE, name);
   }
-
   getNearbySquare(relativeIndex: number) {
     const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
     return (
       !neighbourSquare || neighbourSquare.isForbiddenZone ||
-      neighbourSquare.isTruceZone && this.name[0] != neighbourSquare.name[0]
+      neighbourSquare.isTruceZone && this.file != neighbourSquare.file
     ) ? null : neighbourSquare;
   }
 }

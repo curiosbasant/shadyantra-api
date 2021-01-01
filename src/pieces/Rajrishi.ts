@@ -1,5 +1,5 @@
 import { Piece } from '.';
-import { AttackMove, Board, CastleZone, Move } from '../board';
+import { AttackMove, Board, CastleZone, MediateZone, Move } from '../board';
 import { Alliance } from '../player';
 import { NEIGHBOURS } from '../Utils';
 
@@ -12,9 +12,9 @@ export default class Rajrishi extends Piece {
   calculateLegalMoves(board: Board) {
     const moves: Move[] = [];
     const currentSquare = board.getSquareAt(this.position)!;
-    if (currentSquare.isTruceZone) return this.bailPath(board);
+    if (currentSquare.isTruceZone) return this.hostilePath(board);
 
-    for (const square of board.squares.values()) {
+    for (const square of board.squares) {
       if (square.isOccupied || square.isCastle && this.alliance != (square as CastleZone).alliance) continue;
       moves.push(new Move(this, square));
     }
@@ -35,7 +35,8 @@ export default class Rajrishi extends Piece {
     for (const relativeIndex of NEIGHBOURS) {
       const neighbourSquare = currentSquare.getNearbySquare(relativeIndex);
       if (!neighbourSquare) continue;
-      if (neighbourSquare.isOccupied && neighbourSquare.piece!.isOfficer && !this.isOfSameSide(neighbourSquare.piece)) {
+      neighbourSquare.board.setSquare(new MediateZone(neighbourSquare.board, neighbourSquare.name, this.alliance));
+      if (this.isEnemyOf(neighbourSquare.piece) && (neighbourSquare.piece!.isOfficer || neighbourSquare.piece!.isSoldier)) {
         neighbourSquare.piece!.isFreezed = true;
       }
     }

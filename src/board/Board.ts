@@ -5,53 +5,13 @@ import { BOARD_LAYOUT, BOARD_SIZE, NEIGHBOURS, TOTAL_SQUARES } from '../Utils';
 
 
 export default class Board {
-  static generateBoard(board: Board) {
-    const sqrs = new Map<SquareName, Square>();
-
-    for (const file of 'abcdefgh') {
-      // Set Castle
-      let name = `${ file }0` as SquareName;
-      sqrs.set(name, new CastleZone(board, name, Alliance.BLACK));
-      name = `${ file }9` as SquareName;
-      sqrs.set(name, new CastleZone(board, name, Alliance.WHITE));
-
-      // Set WarZone
-      for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
-        name = `${ file }${ rank }` as SquareName;
-        sqrs.set(name, new WarZone(board, name));
-      }
-    }
-
-    // Set TruceZone on X and Y file
-    for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
-      let name = `x${ rank }` as SquareName;
-      sqrs.set(name, new TruceZone(board, name));
-      name = `y${ rank }` as SquareName;
-      sqrs.set(name, new TruceZone(board, name));
-    }
-
-    return sqrs
-      // Set ForbiddenZone
-      .set('x0', new ForbiddenZone(board, 'x0'))
-      .set('y0', new ForbiddenZone(board, 'y0'))
-      .set('x9', new ForbiddenZone(board, 'x9'))
-      .set('y9', new ForbiddenZone(board, 'y9'));
-  }
-
-  squares: Map<SquareName, Square>;
+  readonly #squares = new Map<SquareName, Square>();
   players: [Player, Player];
   isWhiteTurn: boolean;
 
   constructor(readonly builder: Builder, isWhiteTurn = true) {
     this.isWhiteTurn = isWhiteTurn;
-    this.squares = Board.generateBoard(this);
-    // const [blackLegals, whiteLegals] = this.calculateLegalMoves(builder.config);
-    /* const whiteLegals = this.calculateLegalMoves(builder.whitePieces);
-    const blackLegals = this.calculateLegalMoves(builder.blackPieces);
-    this.players = [
-      new Player(this, blackLegals, whiteLegals),
-      new Player(this, whiteLegals, blackLegals)
-    ]; */
+    this.generateBoard();
     this.players = [
       new Player(this, Alliance.BLACK),
       new Player(this, Alliance.WHITE),
@@ -59,20 +19,41 @@ export default class Board {
     this.opponentPlayer.calculateLegalMoves();
     this.activePlayer.calculateLegalMoves();
   }
-  private calculateLegalMoves(pieces: Piece[]) {
-    const rajrishi = pieces.find(piece => piece instanceof Rajrishi) as Rajrishi;
-    if (!rajrishi) throw new Error("No rajrishi on board!");
-    rajrishi.freezeSurroundingOpponentOfficers(this);
 
-    const legalMoves: Move[] = [];
-    for (const piece of pieces) {
-      const legals = piece.calculateLegalMoves(this);
+  generateBoard() {
+    const sqrs = new Map<SquareName, Square>();
 
-      legalMoves.push(...legals);
+    for (const file of 'abcdefgh') {
+      // Set Castle
+      let name = `${ file }0` as SquareName;
+      sqrs.set(name, new CastleZone(this, name, Alliance.BLACK));
+      name = `${ file }9` as SquareName;
+      sqrs.set(name, new CastleZone(this, name, Alliance.WHITE));
+
+      // Set WarZone
+      for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
+        name = `${ file }${ rank }` as SquareName;
+        sqrs.set(name, new WarZone(this, name));
+      }
     }
 
-    return legalMoves;
+    // Set TruceZone on X and Y file
+    for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
+      let name = `x${ rank }` as SquareName;
+      sqrs.set(name, new TruceZone(this, name));
+      name = `y${ rank }` as SquareName;
+      sqrs.set(name, new TruceZone(this, name));
+    }
+
+    return sqrs
+      // Set ForbiddenZone
+      .set('x0', new ForbiddenZone(this, 'x0'))
+      .set('y0', new ForbiddenZone(this, 'y0'))
+      .set('x9', new ForbiddenZone(this, 'x9'))
+      .set('y9', new ForbiddenZone(this, 'y9'));
   }
+
+
 
   createState() {
     return new BoardState(this);
@@ -81,8 +62,12 @@ export default class Board {
 
   }
 
+/** Returns the square from current board at provided index */
   getSquareAt(index: number) {
-    return this.squares.get(SQUARE_FLAGS[index] as SquareName);
+    return this.#squares.get(SQUARE_FLAGS[index] as SquareName);
+  }
+  getSquareWithName(name: SquareName) {
+    return this.#squares.get(name);
   }
 
   toFEN() {
@@ -96,11 +81,19 @@ export default class Board {
       const row = (piece.position / BOARD_SIZE | 0) + 1;
       layout[piece.position + row] = piece.notation;
     });
-    return '\n' + layout.join('  ') + '\n';
+    return layout.join('  ') + '\n';
   }
 
   print() {
     console.log(this.toString());
+  }
+
+  setSquare(square: Square) {
+    this.#squares.set(square.name, square);
+  }
+
+  get squares() {
+    return this.#squares.values();
   }
   get activePlayer() {
     return this.players[+this.isWhiteTurn];

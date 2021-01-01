@@ -1,4 +1,4 @@
-import { Piece } from '.';
+import { Piece, Pyada, Rajrishi } from '.';
 import { AttackMove, Board, Move } from '../board';
 import { Alliance } from '../player';
 import { BOARD_SIZE, PLUS } from '../Utils';
@@ -7,23 +7,20 @@ abstract class OfficerPiece extends Piece {
   calculateLegalMoves(board: Board) {
     const currentSquare = board.getSquareAt(this.position)!;
 
-    if (this.alliance == board.activePlayer.alliance) {
-      
+    /* if (board.activePlayer.isMyPiece(this)) {
+
     } else if (this.isFreezed) {
       return this.takeControl(board);
-    }
-    
-    if (currentSquare.isTruceZone) {
-      return this.bailPath(board);
-    }
-    return this.vectorMove(board);
+    } */
+
+    return currentSquare.isTruceZone ? this.hostilePath(board) : this.vectorMove(board);
   }
   protected vectorMove(board: Board) {
     const moves = this.type.legals.map<Move[]>(direction => this.lineMove(board, direction)).flat();
 
     return moves;
   }
-  private lineMove(board: Board, direction: number) {
+  protected lineMove(board: Board, direction: number) {
     const moves: Move[] = [];
     let destinationIndex = this.position;
     while (true) {
@@ -48,7 +45,7 @@ abstract class OfficerPiece extends Piece {
 
   takeControl(board: Board) {
     const moves: Move[] = [];
-    for (const square of board.squares.values()) {
+    for (const square of board.squares) {
       // continue if sqare is forbidden, castle or has checks
       if (square.isForbiddenZone || square.isCastle || square.candidatePieces.size) continue;
       moves.push(new Move(this, square));
@@ -62,60 +59,31 @@ abstract class OfficerPiece extends Piece {
   }
 }
 
-abstract class KnightLikeOfficer extends OfficerPiece {
-  protected knightMove(board: Board, needsResource = false) {
-    const currentSquare = board.getSquareAt(this.position)!;
-    const moves: Move[] = [];
-    for (const plusIndex of PLUS) {
-      const resourceSquare = currentSquare.getNearbySquare(plusIndex);
-      if (!currentSquare.isOfSameZoneAs(resourceSquare)) continue;
-      const isResourceAvailable = !needsResource || this.isOfSameSide(resourceSquare!.piece);
-      const relative = this.position + plusIndex * 2;
-      const checkSquare = (candidateIndex = 0) => {
-        const destinationSquare = board.getSquareAt(candidateIndex + relative)!;
-        if (destinationSquare.isCastle) return;
-        if (destinationSquare.isEmpty) {
-          moves.push(new Move(this, destinationSquare));
-        } else if (destinationSquare.isWarZone && isResourceAvailable && this.canAttack(destinationSquare.piece)) {
-          moves.push(new AttackMove(this, destinationSquare));
-        }
-      };
-      const adjacentIndex = Math.abs(plusIndex) == 1 ? BOARD_SIZE : 1;
-      checkSquare(-adjacentIndex);
-      checkSquare(adjacentIndex);
-      needsResource && checkSquare();
-    }
-
-    return moves;
-  }
-}
-
-export class Senapati extends KnightLikeOfficer {
+export class Senapati extends OfficerPiece {
   constructor(position: number, alliance: Alliance) {
     super(Piece.SENAPATI, position, alliance);
   }
 
   calculateLegalMoves(board: Board) {
     const currentSquare = board.getSquareAt(this.position)!;
-    if (currentSquare.isTruceZone) return this.bailPath(board);
+    if (currentSquare.isTruceZone) return this.hostilePath(board);
 
     const moves = this.vectorMove(board);
-    moves.push(...this.knightMove(board));
-    return moves;
-  }
+    for (const plusIndex of PLUS) {
+      const resourceSquare = currentSquare.getNearbySquare(plusIndex)!;
+      if (!currentSquare.isZoneSame(resourceSquare) || this.isEnemyOf(resourceSquare.piece)) continue;
 
-  private _knightMove(board: Board, candidateIndexes: number[]) {
-    const moves: Move[] = [];
-    for (const candidateSquareIndex of candidateIndexes) {
-      const destinationIndex = this.position + candidateSquareIndex;
-      const destinationSquare = board.getSquareAt(destinationIndex);
-      if (destinationSquare === undefined) return moves;
+      const checkSquare = (candidateIndex = 0) => {
+        const destinationSquare = currentSquare.getNearbySquare(candidateIndex + plusIndex * 2)!;
+        if (destinationSquare.isCastle) return;
+        const move = this.createMove(destinationSquare, destinationSquare.isWarZone);
+        moves.push(...move);
+      };
 
-      if (destinationSquare.isEmpty) {
-        moves.push(new Move(this, destinationSquare));
-      } else if (this.canAttack(destinationSquare.piece)) {
-        moves.push(new AttackMove(this, destinationSquare));
-      }
+      if (resourceSquare.isOccupied) checkSquare();
+      const adjacentIndex = Math.abs(plusIndex) == 1 ? BOARD_SIZE : 1;
+      checkSquare(-adjacentIndex);
+      checkSquare(adjacentIndex);
     }
     return moves;
   }
@@ -124,14 +92,35 @@ export class Senapati extends KnightLikeOfficer {
     return new Senapati(move.destinationSquare.index, move.movedPiece.alliance);
   }
 }
-export class Ashvarohi extends KnightLikeOfficer {
+export class Ashvarohi extends OfficerPiece {
   constructor(position: number, alliance: Alliance) {
     super(Piece.ASHVAROHI, position, alliance);
   }
 
   calculateLegalMoves(board: Board) {
     const currentSquare = board.getSquareAt(this.position)!;
-    return currentSquare.isTruceZone ? this.bailPath(board) : this.knightMove(board, true);
+    if (currentSquare.isTruceZone) return this.hostilePath(board);
+
+    const moves: Move[] = [];
+    for (const plusIndex of PLUS) {
+      const resourceSquare = currentSquare.getNearbySquare(plusIndex)!;
+      const resourcePiece = resourceSquare.piece!; // It can be null
+      if (!currentSquare.isZoneSame(resourceSquare) || this.isEnemyOf(resourcePiece)) continue;
+      const isResourceAvailable = resourceSquare.isOccupied && !resourcePiece.isGodman &&
+        (!resourcePiece.isSoldier || board.activePlayer.isFunderAlive);
+
+      const checkSquare = (candidateIndex = 0) => {
+        const destinationSquare = currentSquare.getNearbySquare(candidateIndex + plusIndex * 2)!;
+        if (destinationSquare.isCastle) return;
+        const move = this.createMove(destinationSquare, destinationSquare.isWarZone && isResourceAvailable);
+        moves.push(...move);
+      };
+      const adjacentIndex = Math.abs(plusIndex) == 1 ? BOARD_SIZE : 1;
+      checkSquare(-adjacentIndex);
+      checkSquare();
+      checkSquare(adjacentIndex);
+    }
+    return moves;
   }
 
   moveTo(move: Move) {
