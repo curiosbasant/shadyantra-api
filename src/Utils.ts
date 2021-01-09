@@ -10,17 +10,12 @@ export const NEIGHBOURS = Object.freeze([
 function negatives(array: number[]) {
   array.forEach((n, _, arr) => arr.push(-n));
 }
-export const DEFAULT_FEN = '0c1ir1c0/cmhgasghmc/cppppppppc/9/9/9/9/CPPPPPPPPC/CMHGASGHMC/0C1IR1C0';
+export const DEFAULT_FEN = '0c1ir1c0/cmhgasghmc/cppppppppc/9/9/9/9/CPPPPPPPPC/CMHGSAGHMC/0C1RI1C0';
 export const PLUS = Object.freeze([BOARD_SIZE, 1, -1, -BOARD_SIZE]);
 export const CROSS = Object.freeze([BOARD_SIZE - 1, BOARD_SIZE + 1, -BOARD_SIZE - 1, -BOARD_SIZE + 1]);
 
 const DOUBLE = BOARD_SIZE * 2;
-export const KNIGHT = Object.freeze([
-  -DOUBLE - 1, -DOUBLE + 1,
-  -BOARD_SIZE - 2, -BOARD_SIZE + 2,
-  BOARD_SIZE - 2, BOARD_SIZE + 2,
-  DOUBLE - 1, DOUBLE + 1
-]);
+export const VECTOR = Object.freeze(CROSS.concat(PLUS));
 
 export enum EVENT { MOVE = 'move', END = 'end', START = 'start', READY = 'ready', DEBUG = 'debug' };
 

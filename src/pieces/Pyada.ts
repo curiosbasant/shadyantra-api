@@ -1,5 +1,5 @@
 import { Piece } from '.';
-import { AttackMove, Board, Move } from '../board';
+import { AttackMove, Board, Move, NormalMove, Square, WeakMove } from '../board';
 import { Alliance } from '../player';
 import { BOARD_SIZE } from '../Utils';
 
@@ -11,41 +11,43 @@ export default class Pyada extends Piece {
 
   calculateLegalMoves(board: Board) {
     const moves: Move[] = [];
-    const currentSquare = board.getSquareAt(this.position)!;
-
-    const isOfficerNearby = currentSquare.isOfficerNearby();
+    const currentSquare = this.square(board);
+    if (!currentSquare.isOfficerNearby) return moves;
     // console.log(currentSquare.name, isOfficerNearby, currentSquare.piece?.type.name);
 
-    if (!isOfficerNearby) return moves;
-
     const forwardSquare = currentSquare.getNearbySquare(this.alliance.direction * BOARD_SIZE)!;
-    const processSquare = destinationSquare => {
-      const move = this.createMove(destinationSquare, board.activePlayer.isFunderAlive && !currentSquare.isTruceZone);
-      moves.push(...move);
+    const processSquare = (destinationSquare: Square) => {
+      // const move = this.createMove(destinationSquare, board.activePlayer.isFunderAlive && !currentSquare.isTruceZone);
+      // moves.push(...move);
 
-      /* if (destinationSquare.isEmpty) {
-        moves.push(new Move(this, destinationSquare));
-      } else if (board.activePlayer.isFunderAlive && !currentSquare.isTruceZone && this.canAttack(destinationSquare.piece)) {
-        moves.push(new AttackMove(this, destinationSquare));
-      } */
+      if (board.activePlayer.isFunderAlive) {
+        this.createMove(moves, destinationSquare);
+        // if (destinationSquare.isEmpty) {
+        //   moves.push(new NormalMove(this, destinationSquare));
+        // } esslse if (this.canCapture(destinationSquare)) {
+        //   moves.push(new AttackMove(this, destinationSquare));
+        // }
+      } else if (destinationSquare.isEmpty) {
+        moves.push(new WeakMove(this, destinationSquare));
+      }
     };
-    const normalMovement = (relativeIndex: -1 | 0 | 1) => {
+    const forwardMovement = (relativeIndex: -1 | 0 | 1) => {
       const destinationSquare = forwardSquare.getNearbySquare(relativeIndex)!;
       processSquare(destinationSquare);
+      return forwardMovement;
     };
-    const lastRankMovement = (relativeIndex: -1 | 1) => {
-      const destinationSquare = currentSquare.getNearbySquare(relativeIndex)!;
-      if (destinationSquare.isTruceZone) return normalMovement(relativeIndex);
-      processSquare(destinationSquare);
+    const sidewayMovement = (relativeIndex: -1 | 1) => {
+      const sideSquare = currentSquare.getNearbySquare(relativeIndex)!;
+      sideSquare.isTruceZone ? forwardMovement(relativeIndex) : processSquare(sideSquare);
+      return sidewayMovement;
     };
     if (forwardSquare.isCastle) {
-      lastRankMovement(-1);
-      lastRankMovement(1);
+      sidewayMovement(-1)(1);
     } else {
-      normalMovement(-1);
-      normalMovement(0);
-      normalMovement(1);
+      processSquare(forwardSquare);
+      forwardMovement(-1)(1);
     }
+
     /* for (const candidateSquareIndex of this.type.legals) {
       const destinationIndex = this.position + this.alliance.direction * candidateSquareIndex;
       const destinationSquare = board.getSquareAt(destinationIndex)!;

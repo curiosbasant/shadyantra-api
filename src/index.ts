@@ -29,7 +29,7 @@ function onCommandInput(input: string) {
       break;
     case 'select':
       const validDestinationSquares = shadYantra.select(args[0]);
-      console.log(validDestinationSquares);
+      console.log(validDestinationSquares.toString());
       break;
 
     case 'stop':
@@ -47,11 +47,15 @@ const readline = ReadLine.createInterface({
 });
 
 const shadYantra = new ShadYantra();
-shadYantra.board.print();
+const
+  mv = shadYantra.move.bind(shadYantra),
+  fm = shadYantra.forceMove.bind(shadYantra),
+  sl = shadYantra.select.bind(shadYantra);
+// shadYantra.board.print();
 console.log(shadYantra.generateFEN());
 
-shadYantra.move('a0b0');
-shadYantra.move('b0c0');
+mv('d2d3');
+// shadYantra.move('b0c0');
 
 readline.on('line', input => {
   try {
@@ -61,4 +65,15 @@ readline.on('line', input => {
   }
 });
 
-// console.log('Program Exited!');
+console.log('\n');
+
+/*
+
+Variant Notes
+- King could be checked
+- Freezed Officers could be sent to FZ
+- Introduce new Sadhu pieces
+- When no A in game, remove pawns if no O is nearby
+- Game is not finished when king goes to TZ while offering draw
+
+*/

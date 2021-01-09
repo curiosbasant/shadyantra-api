@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import path from 'path';
 import { performance } from 'perf_hooks';
 import requireAll from 'require-all';
-import { Board, Builder, History, SquareName, SQUARE_FLAGS } from '.';
+import { Board, Builder, History, Move, SquareName, SQUARE_FLAGS, WeakMove } from '.';
 import { Piece, PieceSymbol } from '../pieces';
 import { Alliance } from '../player';
 import { BOARD_SIZE, DEFAULT_FEN, EVENT, TOTAL_SQUARES } from '../Utils';
@@ -33,8 +33,7 @@ export default class ShadYantra extends EventEmitter {
     this.registerEvents(path.join(__dirname, '../events'));
     this.loadFEN(fen);
   }
-
-  move(squareRef: MoveString | MoveObject) {
+  private parseMove(squareRef: MoveString | MoveObject) {
     let f: SquareName, t: SquareName;
     if (typeof squareRef == 'string') {
       f = squareRef.slice(0, 2) as SquareName;
@@ -44,14 +43,27 @@ export default class ShadYantra extends EventEmitter {
       f = resolve(squareRef.from);
       t = resolve(squareRef.to);
     }
-    const currentSquare = this.board.getSquareWithName(f), destinationSquare = this.board.getSquareWithName(t);
-    if (!currentSquare || !destinationSquare) {
+
+    const square = {
+      current: this.board.getSquareWithName(f)!,
+      destination: this.board.getSquareWithName(t)!,
+    };
+    if (!square.current || !square.destination || square.current == square.destination)
       throw new Error("Invalid Square Provided!");
-    }
-    if (currentSquare.isEmpty) throw new Error("No piece to move from there.");
+    if (square.current.isEmpty)
+      throw new Error("No piece to move from there.");
+    return square;
+  }
+  forceMove(squareRef: MoveString | MoveObject) {
+    const { current, destination } = this.parseMove(squareRef);
+    const move = new WeakMove(current.piece, destination);
+    this.executeMove(move);
+  }
+  move(squareRef: MoveString | MoveObject) {
+    const { current, destination } = this.parseMove(squareRef);
 
     const currentLegalMoves = this.board.activePlayer.legalMoves;
-    const validMoves = currentLegalMoves.filter(move => move.destinationSquare == destinationSquare && move.movedPiece == currentSquare.piece);
+    const validMoves = currentLegalMoves.filter(move => move.destinationSquare == destination && move.movedPiece == current.piece);
     if (validMoves.length == 0) {
       console.error('Invalid move');
       return;
@@ -59,8 +71,12 @@ export default class ShadYantra extends EventEmitter {
       console.error('More than such move exists');
       return;
     }
-    this.board = validMoves[0].execute();
-    this.emit(EVENT.MOVE, validMoves[0]);
+    this.executeMove(validMoves[0]);
+  }
+
+  private executeMove(move: Move) {
+    this.board = move.execute();
+    this.emit(EVENT.MOVE, move);
   }
 
   private validateFEN(fen: string) {
@@ -124,22 +140,4 @@ export default class ShadYantra extends EventEmitter {
     }
     this.board = builder.build();
   }
-}
-
-
-class Square2 {
-  piece: Piece | null;
-  constructor(piece: Piece | null) {
-    this.piece = piece;
-  }
-  
-  get isEmpty() {
-    return this.piece === null;
-  }
-}
-
-const square = new Square2(null);
-if (!square.isEmpty) {
-  // Error: Object is possibly 'null'.
-  // square.piece.alliance;
 }

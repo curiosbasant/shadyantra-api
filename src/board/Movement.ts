@@ -1,7 +1,7 @@
 import { Board, Builder, Square } from '.';
 import { Piece } from '../pieces';
 
-export default class Move {
+export default abstract class Move {
   constructor(readonly movedPiece: Piece, readonly destinationSquare: Square) {
 
   }
@@ -18,18 +18,21 @@ export default class Move {
     return `${ this.movedPiece.type.symbol }${ this.destinationSquare.name }`;
   }
 }
+export class NormalMove extends Move {
+  constructor(movedPiece: Piece, destinationSquare: Square) {
+    super(movedPiece, destinationSquare);
+    destinationSquare.protector = movedPiece;
+  }
+}
+export class WeakMove extends Move {
 
+}
 export class AttackMove extends Move {
-
-
   get attackedPiece() {
-    return this.destinationSquare.piece!;
+    return this.destinationSquare.piece;
   }
   toString() {
     return `${ this.movedPiece.type.symbol }x${ this.destinationSquare.name }`;
   }
 }
 
-export class ControlMove extends Move {
-
-}

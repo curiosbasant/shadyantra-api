@@ -1,5 +1,5 @@
 import { Board } from '.';
-import { Piece, Post } from '../pieces';
+import { Piece } from '../pieces';
 import { Alliance } from '../player';
 import { NEIGHBOURS } from '../Utils';
 
@@ -23,18 +23,20 @@ export class Zone {
   static readonly FORBIDDEN_ZONE = new Zone('Forbidden Zone');
   static readonly WAR_ZONE = new Zone('War Zone');
   static readonly TRUCE_ZONE = new Zone('Truce Zone');
-  static readonly MEDIATE_ZONE = new Zone('Mediate Zone');
   constructor(readonly name: ZoneName) {
 
   }
 }
 export default abstract class Square {
   candidatePieces = new Set<Piece>();
-/** Returns the nearby square of the same zone */
+  #protector = new Set<Alliance>();
+  isFreezed = false;
+  isRoyalNearby = false;
+  isOfficerNearby = false;
 
-  constructor(readonly board: Board, private readonly zone: Zone, readonly name: SquareName) {
-  }
-  
+  constructor(readonly board: Board, private readonly zone: Zone, readonly name: SquareName) { }
+
+/** Returns the nearby square from this square*/
   getNearbySquare(relativeIndex: number) {
     return this.board.getSquareAt(this.index + relativeIndex) || null;
   }
@@ -44,40 +46,30 @@ export default abstract class Square {
     return this.zone === square?.zone;
   }
 
-/** Checks if other square is a neighbour  */
+  /** Checks if other square is a neighbour  */
   isNearbySquare(square: Square) {
     const differenceIndex = this.index - square.index;
     return NEIGHBOURS.includes(differenceIndex);
   }
-  
-  private isPostNearby(post: Post) {
-    return NEIGHBOURS.some(index => {
-      const neighbourSquare = this.getNearbySquare(index)!;
-      return this.isZoneSame(neighbourSquare) &&
-        this.piece!.isOwnSide(neighbourSquare.piece) &&
-        neighbourSquare.piece!.type.post == post;
-    });
-  }
-/** Checks if any Officer is nearby in same zone */
-  isOfficerNearby() {
-    return this.isPostNearby(Post.OFFICER);
-  }
-/** Checks if any Royal is nearby in same zone */
-  isRoyalNearby() {
-    return this.isPostNearby(Post.ROYAL);
-  }
+
+  /** Checks if any Opponent's Royal Member is on any Surrounding Squares */
   isOpponentRoyalNearby() {
     return NEIGHBOURS.some(index => {
-      const neighbourSquare = this.getNearbySquare(index)!;
-      return this.isZoneSame(neighbourSquare) &&
-        this.piece!.isEnemyOf(neighbourSquare.piece) &&
-        neighbourSquare.piece!.isRoyal;
+      const neighbourSquare = this.getNearbySquare(index)!; // fake !
+      return this.isZoneSame(neighbourSquare) &&    // returns false if NS is null
+        neighbourSquare.piece.isRoyal &&
+        this.piece.isEnemyOf(neighbourSquare.piece);
     });
   }
+  freeze() {
+    this.isFreezed = true;
+  }
 
-/** Checks if any Godman is nearby  */
-  isGodmanNearby() {
-
+  set protector(piece: Piece) {
+    this.#protector.add(piece.alliance);
+  }
+  get isProtected() {
+    return this.#protector.has(this.board.activePlayer.alliance);
   }
 
   get index() {
@@ -90,7 +82,7 @@ export default abstract class Square {
     return !this.isEmpty;
   }
   get isEmpty() {
-    return this.piece === null;
+    return this.piece.isNull;
   }
   get file() {
     return this.name[0];
@@ -99,9 +91,6 @@ export default abstract class Square {
     return this.name[1];
   }
 
-  get isMediateZone() {
-    return this.zone == Zone.MEDIATE_ZONE;
-  }
   get isWarZone() {
     return this.zone == Zone.WAR_ZONE;
   }
@@ -116,11 +105,6 @@ export default abstract class Square {
   }
 }
 
-export class MediateZone extends Square {
-  constructor(board: Board, name: SquareName, readonly alliance: Alliance) {
-    super(board, Zone.MEDIATE_ZONE, name);
-  }
-}
 export class WarZone extends Square {
   constructor(board: Board, name: SquareName) {
     super(board, Zone.WAR_ZONE, name);

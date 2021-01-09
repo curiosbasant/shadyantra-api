@@ -1,52 +1,48 @@
 import { Alliance } from '.';
-import { Board, Move } from '../board';
-import { Arthshastri, Piece, Rajendra, Rajrishi } from '../pieces';
-
+import { Board, NormalMove, WeakMove } from '../board';
+import { Arthshastri, OfficerPiece, Piece, Rajendra, Rajrishi, RoyalPiece } from '../pieces';
 
 export default class Player {
   hasDeclaredWar = false;
-  legalMoves: Move[] = [];
-  pieces: Piece[];
-  arthSashtri: Piece | null = null;
+  readonly alliance: Alliance;
+  legalMoves: NormalMove[] = [];
+  arthshastri: Arthshastri | null = null;
+  rajrishi: Rajrishi;
   private isInCheck = false;
-  constructor(readonly board: Board, readonly alliance: Alliance) {
-    this.pieces = this.filterPieces();
-    for (const piece of this.pieces) {
-      if (piece instanceof Rajendra) {
 
-      } else if (piece instanceof Rajrishi) {
-        piece.freezeSurroundingOpponentOfficers(board);
-      } else if (piece instanceof Arthshastri) {
-        this.arthSashtri = piece;
-      } else {
-
-      }
-    }
-    // const rajrishi = this.pieces.find(piece => piece instanceof Rajrishi) as Rajrishi;
-    // if (!rajrishi) throw new Error("No rajrishi on board!");
-    // rajrishi.freezeSurroundingOpponentOfficers(board);
+  constructor(readonly board: Board, readonly pieces: Piece[]) {
+    this.alliance = pieces[0].alliance;
+    this.rajrishi = this.findRajrishi();
   }
-  // rajendra: Piece;
-  // rajrishi: Piece;
-  /* constructor(readonly board: Board, readonly legalMoves: Move[], readonly opponentLegalMoves: Move[]) {
-    this.alliance = legalMoves[0].movedPiece.alliance;
-    const rajendra = pieces.find(piece => piece.isRajendra);
-    const rajrishi = pieces.find(piece => piece.isRajrishi);
-    // console.log(legalMoves, indra);
-    if (!rajendra || !rajrishi) throw new Error("No Rajendra or Rajrishi found. Invalid Board");
-    this.rajendra = rajendra;
-    this.rajrishi = rajrishi;
-  } */
 
   private filterPieces() {
-    return this.board.builder.config.filter(piece => piece?.alliance === this.alliance) as Piece[];
+    return this.board.builder.config.filter(piece => this.isMyPiece(piece)) as Piece[];
+  }
+  private findRajrishi() {
+    const rajrishi = this.pieces.find(piece => piece.isGodman);
+    if (!rajrishi) throw new Error("No Rajrishi Found!");
+    return rajrishi as Rajrishi;
   }
 
   calculateLegalMoves() {
     for (const piece of this.pieces) {
+      if (piece instanceof OfficerPiece) {
+        piece.controlNearbySoldiers(this.board);
+      } else if (piece instanceof RoyalPiece) {
+        piece.helpNearbyRoyals(this.board);
+        if (piece instanceof Arthshastri) {
+          this.arthshastri = piece;
+        }
+      }
+    }
+    for (const piece of this.pieces) {
       const legals = piece.calculateLegalMoves(this.board);
-
       this.legalMoves.push(...legals);
+    }
+    const safeSquares = this.board.squares.filter(square => !square.isProtected);
+    for (const officer of this.rajrishi.controllableOpponentOfficers) {
+      const officerMoves = safeSquares.map(square => new WeakMove(officer, square));
+      this.legalMoves.push(...officerMoves);
     }
   }
 
@@ -54,12 +50,12 @@ export default class Player {
     this.isInCheck = true;
   }
 
-  isMyPiece(piece: Piece | null) {
-    return this.alliance === piece?.alliance;
+  isMyPiece(piece: Piece) {
+    return !piece.isNull && this.alliance === piece.alliance;
   }
-  
+
   get isFunderAlive() {
-    return this.arthSashtri !== null;
+    return this.arthshastri !== null;
   }
   get opponent() {
     return this.board.players[+(this.alliance == Alliance.BLACK)];
