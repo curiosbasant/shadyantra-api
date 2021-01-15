@@ -1,91 +1,74 @@
-import { Board, Move, AttackMove } from '../board';
+import { Board, NormalMove, AttackMove, WeakMove, Move, Square } from '../board';
 import { Alliance } from '../player';
-import { BOARD_SIZE, CROSS, NEIGHBOURS, PLUS } from '../Utils';
+import { BOARD_SIZE, DIAGNAL_DIRECTION, ADJACENT_DIRECTION, ORTHOGONAL_DIRECTION } from '../Utils';
 import { Piece, PieceType } from '.';
 
 
 export default abstract class RoyalPiece extends Piece {
-  calculateLegalMoves(board: Board) {
-    const currentSquare = board.getSquareAt(this.position)!;
-    const isRoyalNearby = currentSquare.isRoyalNearby();
-    // console.log(currentSquare.name, isRoyalNearby, currentSquare.piece?.type.name);
-    const moves: Move[] = [];
-    if (currentSquare.isTruceZone) return isRoyalNearby ? this.hostilePath(board) : moves;
-
-    for (const candidateSquareIndex of NEIGHBOURS) {
+  calculateLegalMoves(moves: Move[], currentSquare: Square) {
+    for (const candidateSquareIndex of ADJACENT_DIRECTION) {
       const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
-      // if (!destinationSquare) continue;
-      if (destinationSquare?.isEmpty && (isRoyalNearby || destinationSquare.isZoneSame(currentSquare))) {
-        moves.push(new Move(this, destinationSquare));
+      if (!destinationSquare) continue;
+      if (currentSquare.isRoyalNearby || currentSquare.isZoneSame(destinationSquare)) {
+        destinationSquare.createWeakMove(moves, currentSquare);
       }
     }
-    return moves;
+  }
+
+  helpNearbyRoyals(board: Board) {
+    const currentSquare = this.square(board);
+    for (const relativeIndex of ADJACENT_DIRECTION) {
+      const neighbourSquare = currentSquare.getNearbySquare(relativeIndex)!; // fake !
+      if (currentSquare.isZoneSame(neighbourSquare) && this.isFriendly(neighbourSquare.piece)) {
+        if (neighbourSquare.piece.isRoyal) {
+          currentSquare.isRoyalNearby = neighbourSquare.isRoyalNearby = true;
+        } else if (neighbourSquare.piece.isOfficer) {
+          currentSquare.isOfficerNearby = neighbourSquare.isRoyalNearby = true;
+        }
+      }
+    }
   }
 }
 
-export class Rajendra extends RoyalPiece {
+export abstract class Indra extends RoyalPiece {
+
+}
+export class Rajendra extends Indra {
   constructor(position: number, alliance: Alliance) {
     super(Piece.RAJENDRA, position, alliance);
   }
-  calculateLegalMoves(board: Board) {
-    const currentSquare = board.getSquareAt(this.position)!;
-    const isRoyalNearby = currentSquare.isRoyalNearby();
-    const moves: Move[] = [];
-    if (currentSquare.isTruceZone) return isRoyalNearby ? this.hostilePath(board) : moves;
-
-    for (const candidateSquareIndex of CROSS) {
+  calculateLegalMoves(moves: Move[], currentSquare: Square) {
+    for (const candidateSquareIndex of DIAGNAL_DIRECTION) {
       const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
       if (!destinationSquare) continue;
-
-      if (isRoyalNearby || currentSquare.isZoneSame(destinationSquare)) {
-        moves.push(...this.createMove(destinationSquare));
+      if (currentSquare.isRoyalNearby || currentSquare.isZoneSame(destinationSquare)) {
+        destinationSquare.createMove(moves, currentSquare);
       }
     }
 
-    for (const plusIndex of PLUS) {
-      const destinationSquare = currentSquare.getNearbySquare(plusIndex);
-      if (!destinationSquare) continue;
+    for (const plusIndex of ORTHOGONAL_DIRECTION) {
+      const royalSquare = currentSquare.getNearbySquare(plusIndex);
+      if (!royalSquare) continue;
 
-      const checkSquare = (candidateIndex = 0) => {
-        const destinationSquare = currentSquare.getNearbySquare(candidateIndex + plusIndex * 2);
-        if (destinationSquare && destinationSquare.isEmpty && !currentSquare.isZoneSame(destinationSquare)) {
-          moves.push(new Move(this, destinationSquare));
+      // const checkSquare = (candidateIndex: number) => {
+      //   const destinationSquare = royalSquare.getNearbySquare(candidateIndex + plusIndex);
+      //   destinationSquare?.createMove(moves, currentSquare);
+      //   return checkSquare;
+      // };
+      if (currentSquare.isRoyalNearby || currentSquare.isZoneSame(royalSquare)) {
+        if (royalSquare.createMove(moves, currentSquare) && this.isMyRoyal(royalSquare.piece)) {
+          this.trishulMovement(moves, royalSquare, plusIndex);
         }
-      };
-      if (isRoyalNearby || currentSquare.isZoneSame(destinationSquare)) {
-        if (destinationSquare.isEmpty) {
-          moves.push(new Move(this, destinationSquare));
-        } else if (this.canAttack(destinationSquare.piece)) {
-          moves.push(new AttackMove(this, destinationSquare));
-        } else if (destinationSquare.piece!.isRoyal) {
-          const adjacentIndex = Math.abs(plusIndex) == 1 ? BOARD_SIZE : 1;
-          checkSquare(-adjacentIndex);
-          checkSquare();
-          checkSquare(adjacentIndex);
-        }
+        // if (royalSquare.isEmpty) {
+        //   moves.push(new NormalMove(this, royalSquare));
+        // } else if (this.isDominantOn(royalSquare)) {
+        //   moves.push(new AttackMove(this, royalSquare));
+        // } else if (royalSquare.piece.isRoyal) {
+        //   const adjacentIndex = Math.abs(plusIndex) == 1 ? BOARD_SIZE : 1;
+        //   checkSquare(-adjacentIndex)(0)(adjacentIndex);
+        // }
       }
     }
-    return moves;
-  }
-  _calculateLegalMoves(board: Board) {
-    const currentSquare = board.getSquareAt(this.position)!;
-    const isRoyalNearby = currentSquare.isRoyalNearby();
-    const moves: Move[] = [];
-    if (currentSquare.isTruceZone) return isRoyalNearby ? this.hostilePath(board) : moves;
-
-    for (const candidateSquareIndex of NEIGHBOURS) {
-      const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
-      if (!destinationSquare) continue;
-
-      if (isRoyalNearby || destinationSquare.isZoneSame(currentSquare)) {
-        if (destinationSquare.isEmpty) {
-          moves.push(new Move(this, destinationSquare));
-        } else if (!this.isOwnSide(destinationSquare.piece)) {
-          moves.push(new AttackMove(this, destinationSquare));
-        }
-      }
-    }
-    return moves;
   }
 
   moveTo(move: Move) {
@@ -95,7 +78,15 @@ export class Rajendra extends RoyalPiece {
     return true;
   }
 }
+export class Rajendraw extends Indra {
+  constructor(position: number, alliance: Alliance) {
+    super(Piece.RAJENDRAW, position, alliance);
+  }
 
+  moveTo(move: Move) {
+    return new Rajendraw(move.destinationSquare.index, move.movedPiece.alliance);
+  }
+}
 export class Arthshastri extends RoyalPiece {
   constructor(position: number, alliance: Alliance) {
     super(Piece.ARTHSHASTRI, position, alliance);

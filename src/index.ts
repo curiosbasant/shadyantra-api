@@ -9,7 +9,7 @@ String.prototype.isNumber = function () {
 };
 String.prototype.toCamelCase = function () {
   return this.replace(/(?:^\w|[A-Z]|-|\b\w)/g,
-    (ltr, idx) => idx === 0 ? ltr.toLowerCase() : ltr.toUpperCase()
+    (ltr, idx) => idx == 0 ? ltr.toLowerCase() : ltr.toUpperCase()
   ).replace(/\s+|-/g, '');
 };
 
@@ -29,7 +29,7 @@ function onCommandInput(input: string) {
       break;
     case 'select':
       const validDestinationSquares = shadYantra.select(args[0]);
-      console.log(validDestinationSquares);
+      console.log(validDestinationSquares.toString());
       break;
 
     case 'stop':
@@ -47,11 +47,15 @@ const readline = ReadLine.createInterface({
 });
 
 const shadYantra = new ShadYantra();
-shadYantra.board.print();
+const
+  mv = shadYantra.move.bind(shadYantra),
+  fm = shadYantra.forceMove.bind(shadYantra),
+  sl = shadYantra.select.bind(shadYantra);
+// shadYantra.board.print();
 console.log(shadYantra.generateFEN());
 
-shadYantra.move('a0b0');
-shadYantra.move('b0c0');
+mv('d2d3');
+// shadYantra.move('b0c0');
 
 readline.on('line', input => {
   try {
@@ -61,4 +65,38 @@ readline.on('line', input => {
   }
 });
 
-// console.log('Program Exited!');
+console.log('\n');
+
+/*
+
+Variant Notes
+- King could be checked
+- Freezed Officers could be sent to FZ
+- Introduce new Sadhu pieces
+- When no A in game, remove pawns if no O is nearby
+- Game is not finished when king goes to TZ while offering draw
+
+*/
+/*
+abstract class Parent {
+  abstract sayHello(): void;
+  abstract getGreet(): string;
+}
+class Child1 extends Parent {
+  sayHello() {
+    console.log(this.getGreet());
+  }
+  getGreet() {
+    return 'Hello there!';
+  }
+}
+class Child2 extends Parent {
+  sayHello() {
+    Child1.prototype.sayHello.call(this);
+  }
+
+  getGreet() {
+    return "I don't want to run this.";
+  }
+}
+ */

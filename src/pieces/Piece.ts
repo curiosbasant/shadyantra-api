@@ -1,39 +1,33 @@
-import { Arthshastri, Ashvarohi, Gajarohi, Guptchar, Maharathi, PieceNotation, PieceSymbol, Pyada, Rajendra, Rajrishi, Senapati } from '.';
-import { AttackMove, Board, Move, Square } from '../board';
+import { Arthshastri, Ashvarohi, Gajarohi, Guptchar, Maharathi, OfficerPiece, PieceNotation, PieceSymbol, Pyada, Rajendra, Rajrishi, RoyalPiece, Senapati } from '.';
+import { AttackMove, Board, Move, NormalMove, Square, WeakMove } from '../board';
 import { Alliance } from '../player';
-import { BOARD_SIZE, CROSS, NEIGHBOURS, PLUS } from '../Utils';
+import { ADJACENT_DIRECTION, BOARD_SIZE, DIAGNAL_DIRECTION, ORTHOGONAL_DIRECTION } from '../Utils';
 
-
-type PostTypeName = 'officer' | 'royal' | 'godman' | 'soldier';
-export class Post {
-  static ROYAL = new Post('royal');
-  static GODMAN = new Post('godman');
-  static OFFICER = new Post('officer');
-  static SOLDIER = new Post('soldier');
-  constructor(readonly name: PostTypeName) { }
-}
+const EMPTY_ARRAY = [];
 export class PieceType {
   constructor(
     readonly symbol: PieceSymbol,
     readonly name: string,
     readonly value: number,
-    readonly legals: readonly number[],
-    readonly post: Post,
+    readonly legals: readonly number[] = EMPTY_ARRAY,
   ) { }
 }
 
 export default abstract class Piece {
-  static readonly RAJENDRA = new PieceType('I', 'rajendra', 9, [], Post.ROYAL);
-  static readonly ARTHSHASTRI = new PieceType('A', 'arthshastri', 8, [], Post.ROYAL);
-  static readonly RAJRISHI = new PieceType('R', 'rajrishi', 7, [], Post.GODMAN);
-  static readonly SENAPATI = new PieceType('S', 'senapati', 6, CROSS.concat(PLUS), Post.OFFICER);
-  static readonly MAHARATHI = new PieceType('M', 'maharathi', 5, PLUS, Post.OFFICER);
-  static readonly ASHVAROHI = new PieceType('H', 'ashvarohi', 4, [], Post.OFFICER);
-  static readonly GAJAROHI = new PieceType('G', 'gajarohi', 3, CROSS, Post.OFFICER);
-  static readonly GUPTCHAR = new PieceType('C', 'guptchar', 2, [], Post.ROYAL);
-  static readonly PYADA = new PieceType('P', 'pyada', 1, [], Post.SOLDIER);
+  static readonly RAJENDRA = new PieceType('I', 'rajendra', 9);
+  static readonly RAJENDRAW = new PieceType('J', 'rajendra', 9);
+  static readonly ARTHSHASTRI = new PieceType('A', 'arthshastri', 8);
+  static readonly RAJRISHI = new PieceType('R', 'rajrishi', 7);
+  static readonly SENAPATI = new PieceType('S', 'senapati', 6);
+  static readonly MAHARATHI = new PieceType('M', 'maharathi', 5);
+  static readonly ASHVAROHI = new PieceType('H', 'ashvarohi', 4);
+  static readonly GAJAROHI = new PieceType('G', 'gajarohi', 3);
+  static readonly GUPTCHAR = new PieceType('C', 'guptchar', 2);
+  static readonly PYADA = new PieceType('P', 'pyada', 1);
+  static readonly NULL_PIECE = null as unknown as NullPiece;
 
-  static readonly RANKS = Object.freeze([
+  static readonly STRENGTH_ORDER = Object.freeze([
+    // Piece.PYADA,
     Piece.GUPTCHAR, Piece.GAJAROHI, Piece.ASHVAROHI, Piece.MAHARATHI, Piece.SENAPATI
   ]);
 
@@ -47,32 +41,41 @@ export default abstract class Piece {
       case 'S': return Senapati;
       case 'A': return Arthshastri;
       case 'I': return Rajendra;
+      case 'J': return Rajendra;
       case 'R': return Rajrishi;
     }
   }
 
-  abstract calculateLegalMoves(board: Board): Move[];
+  abstract calculateLegalMoves(moves: Move[], currentSquare: Square, toRetreat: boolean): void;
   abstract moveTo(move: Move): Piece;
 
   readonly notation: PieceNotation;
-  isFreezed = false;
+  // nearbyOfficers = new Set<Piece>();
+  // nearbyRoyals = new Set<Piece>();
 
   constructor(readonly type: PieceType, readonly position: number, readonly alliance: Alliance) {
     this.notation = type.symbol[alliance == Alliance.WHITE ? 'toUpperCase' : 'toLowerCase']() as PieceNotation;
   }
 
-  createMove(square: Square, killIf = true) {
-    const moves: Move[] = [];
-    if (square.isEmpty) moves.push(new Move(this, square));
-    else if (killIf && this.canAttack(square.piece)) {
+  createMove(moves: Move[], square: Square, killIf = true) {
+    if (square.isEmpty) moves.push(new NormalMove(this, square));
+    else if (killIf && this.isDominantOn(square)) {
       moves.push(new AttackMove(this, square));
     }
-    return moves;
+  }
+  createWeakMove(moves: Move[], relativeSquare: Square, relativeIndex: number) {
+    const neighbourSquare = relativeSquare.getNearbySquare(relativeIndex);
+    const sucess = neighbourSquare?.isEmpty && moves.push(new WeakMove(this, neighbourSquare));
+    return Boolean(sucess);
+  }
+
+  square(board: Board) {
+    return board.getSquareAt(this.position)!;
   }
 
   private mote(sign: -1 | 1) {
     const index = this.type.value - 2;
-    const nextRank = Piece.RANKS[index + sign];
+    const nextRank = Piece.STRENGTH_ORDER[index + sign];
     if (!nextRank) {
       throw new Error(`Cannot ${ sign < 1 ? 'de' : 'pro' }mote ${ this.type.name }`);
 
@@ -84,55 +87,66 @@ export default abstract class Piece {
   promote() {
     return this.mote(1);
   }
-
   /** Demotes the piece  */
   demote() {
     return this.mote(-1);
   }
   /** Returns the path to WarZone  */
   protected hostilePath(board: Board) {
-    const moves: Move[] = [];
-    const currentSquare = board.getSquareAt(this.position)!;
+    const moves: WeakMove[] = [];
+    const currentSquare = this.square(board);
 
-    for (const candidateSquareIndex of NEIGHBOURS) {
+    for (const candidateSquareIndex of ADJACENT_DIRECTION) {
       const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
       if (destinationSquare && destinationSquare.isEmpty && (destinationSquare.isWarZone || destinationSquare.isForbiddenZone)) {
-        moves.push(new Move(this, destinationSquare));
+        moves.push(new WeakMove(this, destinationSquare));
       }
     }
 
     return moves;
   }
-
-  /** Checks if can attack other piece  */
-  canAttack(piece: Piece | null) {
-    return !(!piece || piece.isGodman || this.isOwnSide(piece));
+  isDominantOn(destinationSquare: Square) {
+    return this.isEnemyOf(destinationSquare.piece) && !destinationSquare.piece.isGodman;
   }
 
   /** Checks if other piece is of same side  */
-  isOwnSide(piece: Piece | null) {
-    return piece?.alliance === this.alliance;
+  isFriendly(piece: Piece) {
+    return !piece.isNull && this.alliance === piece.alliance;
   }
-  isEnemyOf(piece: Piece | null) {
-    return Boolean(piece) && this.alliance !== piece!.alliance;
+  isEnemyOf(piece: Piece) {
+    return !piece.isNull && this.alliance !== piece.alliance;
   }
 
   /** Checks if other piece is nearby */
-  isCloseTo(piece: Piece | null) {
-    return Boolean(piece) && NEIGHBOURS.includes(this.position - piece!.position);
+  isCloseTo(piece: Piece) {
+    return ADJACENT_DIRECTION.includes(this.position - piece.position);
+  }
+  protected trishulMovement(moves: Move[], originSquare: Square, direction: number, isWeak = false) {
+    const fun = (relativeIndex: number) => {
+      const destinationSquare = originSquare.getNearbySquare(relativeIndex + direction);
+      isWeak ?
+        destinationSquare?.createWeakMove(moves, originSquare) :
+        destinationSquare?.createMove(moves, originSquare);
+      return fun;
+    };
+    const adjacentIndex = Math.abs(direction) == 1 ? BOARD_SIZE : 1;
+    fun(-adjacentIndex)(0)(adjacentIndex);
   }
 
+  isMyRoyal(piece: Piece) {
+    return this.isRoyal && this.isFriendly(piece);
+  }
   get isRoyal() {
-    return this.type.post == Post.ROYAL;
+    return this instanceof RoyalPiece;
   }
   get isOfficer() {
-    return this.type.post == Post.OFFICER;
+    return this instanceof OfficerPiece;
   }
   get isGodman() {
-    return this.type.post == Post.GODMAN;
+    return this instanceof Rajrishi;
   }
   get isSoldier() {
-    return this.type.post == Post.SOLDIER;
+    return this instanceof Pyada;
   }
   get isRajendra() {
     return false;
@@ -141,6 +155,9 @@ export default abstract class Piece {
     return false;
   }
 
+  get isNull() {
+    return false;
+  }
   get isWhite() {
     return this.alliance == Alliance.WHITE;
   }
@@ -148,3 +165,26 @@ export default abstract class Piece {
     return this.alliance == Alliance.BLACK;
   }
 }
+
+const returnFalse: () => false = () => false;
+
+export class NullPiece extends Piece {
+  constructor() {
+    // @ts-ignore
+    super({ symbol: '' }, -1, null);
+  }
+  calculateLegalMoves() {
+    new Error("Can't calculate moves on empty square!");
+  }
+  moveTo(): never {
+    throw new Error('No piece to move');
+  }
+  isFriendly() { return returnFalse(); }
+  isEnemyOf() { return returnFalse(); }
+  get isNull() { return true; }
+  get isWhite() { return returnFalse(); }
+  get isBlack() { return returnFalse(); }
+
+}
+// @ts-ignore
+Piece.NULL_PIECE = new NullPiece();

@@ -1,26 +1,11 @@
 export const BOARD_SIZE = 10;
 export const TOTAL_SQUARES = BOARD_SIZE ** 2;
 
-export const NEIGHBOURS = Object.freeze([
-  -BOARD_SIZE - 1, -BOARD_SIZE, -BOARD_SIZE + 1,
-  -1, 1,
-  BOARD_SIZE - 1, BOARD_SIZE, BOARD_SIZE + 1
-]);
+export const DEFAULT_FEN = '0c1ir1c0/cmhgasghmc/cppppppppc/9/9/9/9/CPPPPPPPPC/CMHGSAGHMC/0C1RI1C0';
+export const ORTHOGONAL_DIRECTION = Object.freeze([BOARD_SIZE, 1, -1, -BOARD_SIZE]);
+export const DIAGNAL_DIRECTION = Object.freeze([BOARD_SIZE - 1, BOARD_SIZE + 1, -BOARD_SIZE - 1, -BOARD_SIZE + 1]);
 
-function negatives(array: number[]) {
-  array.forEach((n, _, arr) => arr.push(-n));
-}
-export const DEFAULT_FEN = '0c1ir1c0/cmhgasghmc/cppppppppc/9/9/9/9/CPPPPPPPPC/CMHGASGHMC/0C1IR1C0';
-export const PLUS = Object.freeze([BOARD_SIZE, 1, -1, -BOARD_SIZE]);
-export const CROSS = Object.freeze([BOARD_SIZE - 1, BOARD_SIZE + 1, -BOARD_SIZE - 1, -BOARD_SIZE + 1]);
-
-const DOUBLE = BOARD_SIZE * 2;
-export const KNIGHT = Object.freeze([
-  -DOUBLE - 1, -DOUBLE + 1,
-  -BOARD_SIZE - 2, -BOARD_SIZE + 2,
-  BOARD_SIZE - 2, BOARD_SIZE + 2,
-  DOUBLE - 1, DOUBLE + 1
-]);
+export const ADJACENT_DIRECTION = Object.freeze(DIAGNAL_DIRECTION.concat(ORTHOGONAL_DIRECTION));
 
 export enum EVENT { MOVE = 'move', END = 'end', START = 'start', READY = 'ready', DEBUG = 'debug' };
 
