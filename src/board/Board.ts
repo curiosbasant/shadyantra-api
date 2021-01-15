@@ -1,12 +1,14 @@
 import { BoardState, CastleZone, ForbiddenZone, NormalMove, Square, SquareName, SQUARE_FLAGS, TruceZone, WarZone } from '.';
 import { NullPiece, Piece, Rajrishi } from '../pieces';
 import { Alliance, Player } from '../player';
-import { BOARD_LAYOUT, BOARD_SIZE, NEIGHBOURS, TOTAL_SQUARES } from '../Utils';
+import { BOARD_LAYOUT, BOARD_SIZE, ADJACENT_DIRECTION, TOTAL_SQUARES } from '../Utils';
 
 
 export default class Board {
   readonly #squares = new Map<SquareName, Square>();
   readonly players: [Player, Player];
+  
+  controlledPiece: Piece | null = null;
 
   constructor(readonly builder: Builder, readonly isWhiteTurn = true) {
     this.generateBoard();
@@ -15,9 +17,8 @@ export default class Board {
       new Player(this, blackPieces),
       new Player(this, whitePieces),
     ];
-    this.opponentPlayer.rajrishi.freezeSurroundingSquares(this);
-    // this.activePlayer.rajrishi.freezeSurroundingSquares(this);
-    this.activePlayer.rajrishi.controlSurroundingOfficers(this);
+    this.opponentPlayer.rajrishi.createMediateZone(this);
+    this.activePlayer.rajrishi.controlOpponentOfficers(this);
 
     // this.opponentPlayer.calculateLegalMoves();
     this.activePlayer.calculateLegalMoves();
@@ -25,6 +26,7 @@ export default class Board {
 
   /** Creates the board with all the squares */
   private generateBoard() {
+    const HALF_RANK = BOARD_SIZE / 2;
     for (const file of 'abcdefgh') {
       // Set Castle
       let name = `${ file }0` as SquareName;
@@ -35,23 +37,25 @@ export default class Board {
       // Set WarZone
       for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
         name = `${ file }${ rank }` as SquareName;
-        this.setSquare(new WarZone(this, name));
+        const alliance = rank < HALF_RANK ? Alliance.WHITE : Alliance.BLACK;
+        this.setSquare(new WarZone(this, name, alliance));
       }
     }
 
     // Set TruceZone on X and Y file
     for (let rank = 1; rank < BOARD_SIZE - 1; rank++) {
       let name = `x${ rank }` as SquareName;
-      this.setSquare(new TruceZone(this, name));
+      const alliance = rank < HALF_RANK ? Alliance.WHITE : Alliance.BLACK;
+      this.setSquare(new TruceZone(this, name, alliance));
       name = `y${ rank }` as SquareName;
-      this.setSquare(new TruceZone(this, name));
+      this.setSquare(new TruceZone(this, name, alliance));
     }
 
     this // Set ForbiddenZone
-      .setSquare(new ForbiddenZone(this, 'x0'))
-      .setSquare(new ForbiddenZone(this, 'y0'))
-      .setSquare(new ForbiddenZone(this, 'x9'))
-      .setSquare(new ForbiddenZone(this, 'y9'));
+      .setSquare(new ForbiddenZone(this, 'x0', Alliance.BLACK))
+      .setSquare(new ForbiddenZone(this, 'y0', Alliance.BLACK))
+      .setSquare(new ForbiddenZone(this, 'x9', Alliance.WHITE))
+      .setSquare(new ForbiddenZone(this, 'y9', Alliance.WHITE));
   }
   
   private dividePieces() {
@@ -95,7 +99,7 @@ export default class Board {
 
 /** Prints the board to the console. */
   print() {
-    console.log(this.toString());
+    console.log('\n', this.toString());
   }
 
   setSquare(square: Square) {

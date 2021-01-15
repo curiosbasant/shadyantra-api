@@ -21,7 +21,7 @@ export default abstract class Move {
 export class NormalMove extends Move {
   constructor(movedPiece: Piece, destinationSquare: Square) {
     super(movedPiece, destinationSquare);
-    destinationSquare.protector = movedPiece;
+    destinationSquare.addAttacker(movedPiece);
   }
 }
 export class WeakMove extends Move {
@@ -36,3 +36,20 @@ export class AttackMove extends Move {
   }
 }
 
+export class SuicideMove extends Move {
+  execute() {
+    const configCopy = this.destinationSquare.board.builder.copyAlignment();
+    const builder = new Builder(configCopy)
+      .removePiece(this.movedPiece.position);
+    // .setPiece(this.movedPiece.moveTo(this));
+    return builder.build();
+  }
+}
+
+export class PromotionMove extends Move {
+
+}
+
+export class DemotionMove extends Move {
+
+}

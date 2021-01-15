@@ -9,18 +9,43 @@ export default class Pyada extends Piece {
     super(Piece.PYADA, position, alliance);
   }
 
-  calculateLegalMoves(board: Board) {
-    const moves: Move[] = [];
-    const currentSquare = this.square(board);
+  calculateLegalMoves(moves: Move[], currentSquare: Square, toRetreat = false) {
     if (!currentSquare.isOfficerNearby) return moves;
-    // console.log(currentSquare.name, isOfficerNearby, currentSquare.piece?.type.name);
+    const isFunderAlive = currentSquare.board.activePlayer.isFunderAlive;
+    const dir = this.alliance.direction;
+    // const referenceIndex = toRetreat && currentSquare.isOfOpponent ? -dir : dir;
+    const forwardSquare = currentSquare.getNearbySquare(dir)!;
 
-    const forwardSquare = currentSquare.getNearbySquare(this.alliance.direction * BOARD_SIZE)!;
+    if (!toRetreat) {
+      if (forwardSquare.isCastle) {
+        const fun = (index: number) => {
+          let sideSquare = currentSquare.getNearbySquare(index)!;
+          if (sideSquare.isTruceZone) sideSquare = forwardSquare.getNearbySquare(index)!;
+          isFunderAlive ?
+            sideSquare.createMove(moves, currentSquare) :
+            sideSquare.createWeakMove(moves, currentSquare);
+        };
+        fun(-1);
+        fun(1);
+      } else
+        this.trishulMovement(moves, currentSquare, dir, isFunderAlive);
+    } else if (currentSquare.isOfOpponent) {
+      this.trishulMovement(moves, currentSquare, -dir, isFunderAlive);
+    } else if (forwardSquare.isOfMine) {
+      this.trishulMovement(moves, currentSquare, dir, isFunderAlive);
+    }
+  }
+
+  _calculateLegalMoves(currentSquare: Square) {
+    const moves: Move[] = [];
+    if (!currentSquare.isOfficerNearby) return moves;
+
+    const forwardSquare = currentSquare.getNearbySquare(this.alliance.direction)!;
     const processSquare = (destinationSquare: Square) => {
       // const move = this.createMove(destinationSquare, board.activePlayer.isFunderAlive && !currentSquare.isTruceZone);
       // moves.push(...move);
 
-      if (board.activePlayer.isFunderAlive) {
+      if (currentSquare.board.activePlayer.isFunderAlive) {
         this.createMove(moves, destinationSquare);
         // if (destinationSquare.isEmpty) {
         //   moves.push(new NormalMove(this, destinationSquare));

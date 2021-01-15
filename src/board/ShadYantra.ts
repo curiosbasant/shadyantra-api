@@ -102,8 +102,9 @@ export default class ShadYantra extends EventEmitter {
     if (!square) throw new Error("That square doesnot exist");
     if (square.isEmpty) throw new Error("No piece on that square!");
     const validMoves = this.board.activePlayer.legalMoves.filter(move => move.movedPiece == square.piece);
-
-    return validMoves.map(move => move.destinationSquare.name);
+    const validSquareNames = validMoves.map(move => move.destinationSquare.name);
+    if (validSquareNames.length == 1) return `1 Legal Move for ${ square.piece.notation } on square ${ square.name } is: ${ validSquareNames[0] }`;
+    return `${ validSquareNames.length } Legal Moves for ${ square.piece.notation } on square ${ square.name } are: ${ validSquareNames.join(', ') }`;
   }
   removePieceFrom(square: SquareName) {
     return true;

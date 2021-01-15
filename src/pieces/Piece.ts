@@ -1,7 +1,7 @@
 import { Arthshastri, Ashvarohi, Gajarohi, Guptchar, Maharathi, OfficerPiece, PieceNotation, PieceSymbol, Pyada, Rajendra, Rajrishi, RoyalPiece, Senapati } from '.';
 import { AttackMove, Board, Move, NormalMove, Square, WeakMove } from '../board';
 import { Alliance } from '../player';
-import { CROSS, NEIGHBOURS, PLUS, VECTOR } from '../Utils';
+import { ADJACENT_DIRECTION, BOARD_SIZE, DIAGNAL_DIRECTION, ORTHOGONAL_DIRECTION } from '../Utils';
 
 const EMPTY_ARRAY = [];
 export class PieceType {
@@ -15,18 +15,19 @@ export class PieceType {
 
 export default abstract class Piece {
   static readonly RAJENDRA = new PieceType('I', 'rajendra', 9);
-  static readonly DRAWER = new PieceType('J', 'rajendra', 9);
+  static readonly RAJENDRAW = new PieceType('J', 'rajendra', 9);
   static readonly ARTHSHASTRI = new PieceType('A', 'arthshastri', 8);
   static readonly RAJRISHI = new PieceType('R', 'rajrishi', 7);
-  static readonly SENAPATI = new PieceType('S', 'senapati', 6, VECTOR);
-  static readonly MAHARATHI = new PieceType('M', 'maharathi', 5, PLUS);
+  static readonly SENAPATI = new PieceType('S', 'senapati', 6);
+  static readonly MAHARATHI = new PieceType('M', 'maharathi', 5);
   static readonly ASHVAROHI = new PieceType('H', 'ashvarohi', 4);
-  static readonly GAJAROHI = new PieceType('G', 'gajarohi', 3, CROSS);
+  static readonly GAJAROHI = new PieceType('G', 'gajarohi', 3);
   static readonly GUPTCHAR = new PieceType('C', 'guptchar', 2);
   static readonly PYADA = new PieceType('P', 'pyada', 1);
   static readonly NULL_PIECE = null as unknown as NullPiece;
 
-  static readonly RANKS = Object.freeze([
+  static readonly STRENGTH_ORDER = Object.freeze([
+    // Piece.PYADA,
     Piece.GUPTCHAR, Piece.GAJAROHI, Piece.ASHVAROHI, Piece.MAHARATHI, Piece.SENAPATI
   ]);
 
@@ -45,12 +46,12 @@ export default abstract class Piece {
     }
   }
 
-  abstract calculateLegalMoves(board: Board): Move[];
+  abstract calculateLegalMoves(moves: Move[], currentSquare: Square, toRetreat: boolean): void;
   abstract moveTo(move: Move): Piece;
 
   readonly notation: PieceNotation;
-  nearbyOfficers = new Set<Piece>();
-  nearbyRoyals = new Set<Piece>();
+  // nearbyOfficers = new Set<Piece>();
+  // nearbyRoyals = new Set<Piece>();
 
   constructor(readonly type: PieceType, readonly position: number, readonly alliance: Alliance) {
     this.notation = type.symbol[alliance == Alliance.WHITE ? 'toUpperCase' : 'toLowerCase']() as PieceNotation;
@@ -58,18 +59,23 @@ export default abstract class Piece {
 
   createMove(moves: Move[], square: Square, killIf = true) {
     if (square.isEmpty) moves.push(new NormalMove(this, square));
-    else if (killIf && this.canCapture(square)) {
+    else if (killIf && this.isDominantOn(square)) {
       moves.push(new AttackMove(this, square));
     }
   }
-  
+  createWeakMove(moves: Move[], relativeSquare: Square, relativeIndex: number) {
+    const neighbourSquare = relativeSquare.getNearbySquare(relativeIndex);
+    const sucess = neighbourSquare?.isEmpty && moves.push(new WeakMove(this, neighbourSquare));
+    return Boolean(sucess);
+  }
+
   square(board: Board) {
     return board.getSquareAt(this.position)!;
   }
 
   private mote(sign: -1 | 1) {
     const index = this.type.value - 2;
-    const nextRank = Piece.RANKS[index + sign];
+    const nextRank = Piece.STRENGTH_ORDER[index + sign];
     if (!nextRank) {
       throw new Error(`Cannot ${ sign < 1 ? 'de' : 'pro' }mote ${ this.type.name }`);
 
@@ -90,7 +96,7 @@ export default abstract class Piece {
     const moves: WeakMove[] = [];
     const currentSquare = this.square(board);
 
-    for (const candidateSquareIndex of NEIGHBOURS) {
+    for (const candidateSquareIndex of ADJACENT_DIRECTION) {
       const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
       if (destinationSquare && destinationSquare.isEmpty && (destinationSquare.isWarZone || destinationSquare.isForbiddenZone)) {
         moves.push(new WeakMove(this, destinationSquare));
@@ -99,24 +105,12 @@ export default abstract class Piece {
 
     return moves;
   }
-
-  /** Checks if can attack other piece  */
-  canAttack(piece: Piece) {
-    return !piece.isGodman && this.isEnemyOf(piece);
-  }
-  /** Can't capture if DS is TZ or Freezed or has Godman */
-  canMove(destinationSquare: Square) {
-    const currentSquare = this.square(destinationSquare.board);
-    if (currentSquare.isFreezed && destinationSquare.isFreezed) return false;
-    return destinationSquare.isEmpty;
-  }
-  canCapture(destinationSquare: Square) {
-    return this.isEnemyOf(destinationSquare.piece) && !(destinationSquare.isTruceZone ||
-      destinationSquare.isFreezed || destinationSquare.piece.isGodman);
+  isDominantOn(destinationSquare: Square) {
+    return this.isEnemyOf(destinationSquare.piece) && !destinationSquare.piece.isGodman;
   }
 
   /** Checks if other piece is of same side  */
-  isOwnSide(piece: Piece) {
+  isFriendly(piece: Piece) {
     return !piece.isNull && this.alliance === piece.alliance;
   }
   isEnemyOf(piece: Piece) {
@@ -125,9 +119,23 @@ export default abstract class Piece {
 
   /** Checks if other piece is nearby */
   isCloseTo(piece: Piece) {
-    return NEIGHBOURS.includes(this.position - piece.position);
+    return ADJACENT_DIRECTION.includes(this.position - piece.position);
+  }
+  protected trishulMovement(moves: Move[], originSquare: Square, direction: number, isWeak = false) {
+    const fun = (relativeIndex: number) => {
+      const destinationSquare = originSquare.getNearbySquare(relativeIndex + direction);
+      isWeak ?
+        destinationSquare?.createWeakMove(moves, originSquare) :
+        destinationSquare?.createMove(moves, originSquare);
+      return fun;
+    };
+    const adjacentIndex = Math.abs(direction) == 1 ? BOARD_SIZE : 1;
+    fun(-adjacentIndex)(0)(adjacentIndex);
   }
 
+  isMyRoyal(piece: Piece) {
+    return this.isRoyal && this.isFriendly(piece);
+  }
   get isRoyal() {
     return this instanceof RoyalPiece;
   }
@@ -161,18 +169,17 @@ export default abstract class Piece {
 const returnFalse: () => false = () => false;
 
 export class NullPiece extends Piece {
-  calculateLegalMoves(board: Board): NormalMove[] {
-    return [];
-  }
-  moveTo(move: NormalMove): Piece {
-    throw new Error('Method not implemented.');
-  }
   constructor() {
     // @ts-ignore
-    super({ symbol: '-' }, -1, null);
+    super({ symbol: '' }, -1, null);
   }
-
-  isOwnSide() { return returnFalse(); }
+  calculateLegalMoves() {
+    new Error("Can't calculate moves on empty square!");
+  }
+  moveTo(): never {
+    throw new Error('No piece to move');
+  }
+  isFriendly() { return returnFalse(); }
   isEnemyOf() { return returnFalse(); }
   get isNull() { return true; }
   get isWhite() { return returnFalse(); }

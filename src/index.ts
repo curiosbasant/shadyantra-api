@@ -9,7 +9,7 @@ String.prototype.isNumber = function () {
 };
 String.prototype.toCamelCase = function () {
   return this.replace(/(?:^\w|[A-Z]|-|\b\w)/g,
-    (ltr, idx) => idx === 0 ? ltr.toLowerCase() : ltr.toUpperCase()
+    (ltr, idx) => idx == 0 ? ltr.toLowerCase() : ltr.toUpperCase()
   ).replace(/\s+|-/g, '');
 };
 
@@ -77,3 +77,26 @@ Variant Notes
 - Game is not finished when king goes to TZ while offering draw
 
 */
+/*
+abstract class Parent {
+  abstract sayHello(): void;
+  abstract getGreet(): string;
+}
+class Child1 extends Parent {
+  sayHello() {
+    console.log(this.getGreet());
+  }
+  getGreet() {
+    return 'Hello there!';
+  }
+}
+class Child2 extends Parent {
+  sayHello() {
+    Child1.prototype.sayHello.call(this);
+  }
+
+  getGreet() {
+    return "I don't want to run this.";
+  }
+}
+ */

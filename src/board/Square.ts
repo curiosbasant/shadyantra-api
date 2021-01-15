@@ -1,7 +1,7 @@
-import { Board } from '.';
+import { AttackMove, Board, Move, NormalMove, SuicideMove, WeakMove } from '.';
 import { Piece } from '../pieces';
 import { Alliance } from '../player';
-import { NEIGHBOURS } from '../Utils';
+import { ADJACENT_DIRECTION } from '../Utils';
 
 
 export enum SQUARE_FLAGS {
@@ -17,44 +17,36 @@ export enum SQUARE_FLAGS {
   x0, a0, b0, c0, d0, e0, f0, g0, h0, y0,
 };
 export type SquareName = keyof typeof SQUARE_FLAGS;
-export type ZoneName = 'Castle' | 'Forbidden Zone' | 'War Zone' | 'Truce Zone' | 'Mediate Zone';
-export class Zone {
-  static readonly CASTLE = new Zone('Castle');
-  static readonly FORBIDDEN_ZONE = new Zone('Forbidden Zone');
-  static readonly WAR_ZONE = new Zone('War Zone');
-  static readonly TRUCE_ZONE = new Zone('Truce Zone');
-  constructor(readonly name: ZoneName) {
 
-  }
-}
 export default abstract class Square {
   candidatePieces = new Set<Piece>();
-  #protector = new Set<Alliance>();
-  isFreezed = false;
+  #attackers = new Set<Piece>();
+  #dominators = new Set<Piece>();
+  restrictedPieces = new Set<Piece>();
   isRoyalNearby = false;
   isOfficerNearby = false;
 
-  constructor(readonly board: Board, private readonly zone: Zone, readonly name: SquareName) { }
+  constructor(readonly board: Board, readonly name: SquareName, readonly alliance: Alliance) { }
 
-/** Returns the nearby square from this square*/
+  /** Returns the nearby square from this square*/
   getNearbySquare(relativeIndex: number) {
     return this.board.getSquareAt(this.index + relativeIndex) || null;
   }
 
   /** Checks if other square is of same zone  */
   isZoneSame(square: Square | null) {
-    return this.zone === square?.zone;
+    return this.constructor === square?.constructor;
   }
 
   /** Checks if other square is a neighbour  */
   isNearbySquare(square: Square) {
     const differenceIndex = this.index - square.index;
-    return NEIGHBOURS.includes(differenceIndex);
+    return ADJACENT_DIRECTION.includes(differenceIndex);
   }
 
   /** Checks if any Opponent's Royal Member is on any Surrounding Squares */
   isOpponentRoyalNearby() {
-    return NEIGHBOURS.some(index => {
+    return ADJACENT_DIRECTION.some(index => {
       const neighbourSquare = this.getNearbySquare(index)!; // fake !
       return this.isZoneSame(neighbourSquare) &&    // returns false if NS is null
         neighbourSquare.piece.isRoyal &&
@@ -62,14 +54,25 @@ export default abstract class Square {
     });
   }
   freeze() {
-    this.isFreezed = true;
+    this.board.setSquare(new MediateZone(this.board, this.name, this.alliance));
   }
 
-  set protector(piece: Piece) {
-    this.#protector.add(piece.alliance);
+  addDominantPiece(piece: Piece) {
+    this.#dominators.add(piece);
   }
-  get isProtected() {
-    return this.#protector.has(this.board.activePlayer.alliance);
+  restrictPieceToMove(piece: Piece) {
+    this.restrictedPieces.add(piece);
+  }
+  
+  addAttacker(piece: Piece) {
+    this.#attackers.add(piece);
+  }
+  isAttackedBy(piece: Piece) {
+    this.#attackers.has(piece);
+  }
+
+  get isInAttack() {
+    return Boolean(this.#attackers.size);
   }
 
   get index() {
@@ -84,41 +87,68 @@ export default abstract class Square {
   get isEmpty() {
     return this.piece.isNull;
   }
+  get isOfMine() {
+    return this.alliance == this.board.activePlayer.alliance;
+  }
+  get isOfOpponent() {
+    return !this.isOfMine;
+  }
   get file() {
     return this.name[0];
   }
   get rank() {
-    return this.name[1];
+    return +this.name[1];
   }
 
   get isWarZone() {
-    return this.zone == Zone.WAR_ZONE;
+    return this instanceof WarZone;
   }
   get isTruceZone() {
-    return this.zone == Zone.TRUCE_ZONE;
+    return this instanceof TruceZone;
+  }
+  get isMediateZone() {
+    return this instanceof MediateZone;
   }
   get isCastle() {
-    return this.zone == Zone.CASTLE;
+    return this instanceof CastleZone;
+  }
+  get isMyCastle() {
+    return this.isCastle && this.isOfMine;
   }
   get isForbiddenZone() {
-    return this.zone == Zone.FORBIDDEN_ZONE;
+    return this instanceof ForbiddenZone;
+  }
+
+  /** Returns boolean if to break the loop */
+  abstract createMove(moves: Move[], originSquare: Square): boolean;
+  createWeakMove(moves: Move[], originSquare: Square) {
+    this.isEmpty && moves.push(new WeakMove(originSquare.piece, this));
+    return this.isOccupied;
+  }
+  protected createDominatingMove(moves: Move[], originSquare: Square) {
+    if (this.isEmpty) {
+      moves.push(new NormalMove(originSquare.piece, this));
+    } else if (originSquare.piece.isDominantOn(this)) {
+      moves.push(new AttackMove(originSquare.piece, this));
+    }
+    return this.isOccupied;
   }
 }
 
 export class WarZone extends Square {
-  constructor(board: Board, name: SquareName) {
-    super(board, Zone.WAR_ZONE, name);
-  }
-}
-export class CastleZone extends Square {
-  constructor(board: Board, name: SquareName, readonly alliance: Alliance) {
-    super(board, Zone.CASTLE, name);
+  createMove(moves: Move[], originSquare: Square) {
+    return originSquare.isTruceZone ?
+      this.createWeakMove(moves, originSquare) || true :
+      this.createDominatingMove(moves, originSquare);
   }
 }
 
 export class TruceZone extends Square {
-  constructor(board: Board, name: SquareName) {
-    super(board, Zone.TRUCE_ZONE, name);
+  createMove(moves: Move[], originSquare: Square) {
+    return this.createWeakMove(moves, originSquare);
+  }
+  createWeakMove(moves: Move[], originSquare: Square): true {
+    return originSquare.isTruceZone || super.createWeakMove(moves, originSquare) || true;
   }
   getNearbySquare(relativeIndex: number) {
     const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
@@ -131,9 +161,34 @@ export class TruceZone extends Square {
     return neighbourSquare;
   }
 }
+
+export class CastleZone extends Square {
+  createMove(moves: Move[], originSquare: Square): true {
+    return originSquare.piece.isRoyal && this.createDominatingMove(moves, originSquare) || true;
+  }
+  createWeakMove(moves: Move[], originSquare: Square): true {
+    if (originSquare.piece.isRoyal || originSquare.piece.isGodman && this.isMyCastle)
+      super.createWeakMove(moves, originSquare);
+    return true;
+  }
+}
+
+export class MediateZone extends Square {
+  createMove(moves: Move[], originSquare: Square) {
+    // If coming from MZ -> false; TZ -> true; OZ -> makes weak move
+    return !originSquare.isMediateZone && (this.createWeakMove(moves, originSquare) || originSquare.isTruceZone);
+    // return originSquare.isMediateZone ? false : this.createWeakMove(moves, originSquare) || originSquare.isTruceZone;
+  }
+}
+
 export class ForbiddenZone extends Square {
-  constructor(board: Board, name: SquareName) {
-    super(board, Zone.FORBIDDEN_ZONE, name);
+  createMove(moves: Move[], originSquare: Square): true {
+    const Mover = originSquare.piece.isGodman ? NormalMove : SuicideMove;
+    moves.push(new Mover(originSquare.piece, this));
+    return true;
+  }
+  createWeakMove(moves: Move[], originSquare: Square) {
+    return this.createMove(moves, originSquare);
   }
   getNearbySquare(relativeIndex: number) {
     const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
