@@ -70,9 +70,12 @@ export default abstract class Square {
   isAttackedBy(piece: Piece) {
     this.#attackers.has(piece);
   }
-
+  
   get isInAttack() {
     return Boolean(this.#attackers.size);
+  }
+  get isMyCastle() {
+    return this.isCastle && this.isOfMine;
   }
 
   get index() {
@@ -111,9 +114,6 @@ export default abstract class Square {
   }
   get isCastle() {
     return this instanceof CastleZone;
-  }
-  get isMyCastle() {
-    return this.isCastle && this.isOfMine;
   }
   get isForbiddenZone() {
     return this instanceof ForbiddenZone;
