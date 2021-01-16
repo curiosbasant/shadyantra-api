@@ -120,11 +120,11 @@ abstract class KnightLike extends OfficerPiece {
 
     const isWeak = this.isWeak(resourceSquare),
       oDir = Math.abs(rDir) == 1 ? this.alliance.direction : 1;
-    isWeak != null && this.knightMove(moves, currentSquare, rDir * 2, isWeak);
     this.knightMove(moves, currentSquare, rDir * 2 - oDir, isWeak || false);
+    isWeak != null && this.knightMove(moves, currentSquare, rDir * 2, isWeak);
     this.knightMove(moves, currentSquare, rDir * 2 + oDir, isWeak || false);
   }
-  knightMove(moves: Move[], currentSquare: Square, direction: number, isWeak = false) {
+  protected knightMove(moves: Move[], currentSquare: Square, direction: number, isWeak = false) {
     const destinationSquare = currentSquare.getNearbySquare(direction);
     isWeak ?
       destinationSquare?.createWeakMove(moves, currentSquare) :

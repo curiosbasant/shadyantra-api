@@ -27,6 +27,10 @@ function onCommandInput(input: string) {
       // @ts-ignore
       shadYantra.move(args[0]);
       break;
+    case 'forcemove':
+      // @ts-ignore
+      shadYantra.forceMove(args[0]);
+      break;
     case 'select':
       const validDestinationSquares = shadYantra.select(args[0]);
       console.log(validDestinationSquares.toString());

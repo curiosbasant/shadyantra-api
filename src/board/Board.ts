@@ -10,7 +10,7 @@ export default class Board {
   
   controlledPiece: Piece | null = null;
 
-  constructor(readonly builder: Builder, readonly isWhiteTurn = true) {
+  constructor(readonly builder: Builder, readonly isWhiteTurn: boolean) {
     this.generateBoard();
     const [whitePieces, blackPieces] = this.dividePieces();
     this.players = [
@@ -138,7 +138,7 @@ export class Builder {
     return this.config.slice();
   }
 
-  build() {
-    return new Board(this);
+  build(moveMaker = Alliance.WHITE) {
+    return new Board(this, moveMaker == Alliance.WHITE);
   }
 }

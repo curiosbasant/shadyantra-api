@@ -31,7 +31,6 @@ export default abstract class RoyalPiece extends Piece {
 }
 
 export abstract class Indra extends RoyalPiece {
-
 }
 export class Rajendra extends Indra {
   constructor(position: number, alliance: Alliance) {
@@ -46,36 +45,30 @@ export class Rajendra extends Indra {
       }
     }
 
+    const knightMove = (royalSquare: Square, direction: number) => {
+      const moveTo = (index: number) => {
+        const destinationSquare = royalSquare.getNearbySquare(index);
+        destinationSquare?.createMove(moves, currentSquare);
+      };
+      const oDir = Math.abs(direction) == 1 ? BOARD_SIZE : 1;
+      moveTo(direction - oDir);
+      moveTo(direction);
+      moveTo(direction + oDir);
+    };
     for (const plusIndex of ORTHOGONAL_DIRECTION) {
       const royalSquare = currentSquare.getNearbySquare(plusIndex);
       if (!royalSquare) continue;
 
-      // const checkSquare = (candidateIndex: number) => {
-      //   const destinationSquare = royalSquare.getNearbySquare(candidateIndex + plusIndex);
-      //   destinationSquare?.createMove(moves, currentSquare);
-      //   return checkSquare;
-      // };
       if (currentSquare.isRoyalNearby || currentSquare.isZoneSame(royalSquare)) {
-        if (royalSquare.createMove(moves, currentSquare) && this.isMyRoyal(royalSquare.piece)) {
-          this.trishulMovement(moves, royalSquare, plusIndex);
+        if (royalSquare.createMove(moves, currentSquare) && this.isFriendlyRoyal(royalSquare.piece)) {
+          knightMove(royalSquare, plusIndex);
         }
-        // if (royalSquare.isEmpty) {
-        //   moves.push(new NormalMove(this, royalSquare));
-        // } else if (this.isDominantOn(royalSquare)) {
-        //   moves.push(new AttackMove(this, royalSquare));
-        // } else if (royalSquare.piece.isRoyal) {
-        //   const adjacentIndex = Math.abs(plusIndex) == 1 ? BOARD_SIZE : 1;
-        //   checkSquare(-adjacentIndex)(0)(adjacentIndex);
-        // }
       }
     }
   }
 
   moveTo(move: Move) {
     return new Rajendra(move.destinationSquare.index, move.movedPiece.alliance);
-  }
-  get isRajendra() {
-    return true;
   }
 }
 export class Rajendraw extends Indra {

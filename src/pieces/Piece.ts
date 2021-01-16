@@ -3,14 +3,8 @@ import { AttackMove, Board, Move, NormalMove, Square, WeakMove } from '../board'
 import { Alliance } from '../player';
 import { ADJACENT_DIRECTION, BOARD_SIZE, DIAGNAL_DIRECTION, ORTHOGONAL_DIRECTION } from '../Utils';
 
-const EMPTY_ARRAY = [];
 export class PieceType {
-  constructor(
-    readonly symbol: PieceSymbol,
-    readonly name: string,
-    readonly value: number,
-    readonly legals: readonly number[] = EMPTY_ARRAY,
-  ) { }
+  constructor(readonly symbol: PieceSymbol, readonly name: string, readonly value: number) { }
 }
 
 export default abstract class Piece {
@@ -27,10 +21,8 @@ export default abstract class Piece {
   static readonly NULL_PIECE = null as unknown as NullPiece;
 
   static readonly STRENGTH_ORDER = Object.freeze([
-    // Piece.PYADA,
     Piece.GUPTCHAR, Piece.GAJAROHI, Piece.ASHVAROHI, Piece.MAHARATHI, Piece.SENAPATI
   ]);
-
   static getPieceBySymbol(symbol: PieceSymbol) {
     switch (symbol) {
       case 'P': return Pyada;
@@ -132,9 +124,12 @@ export default abstract class Piece {
     const adjacentIndex = Math.abs(direction) == 1 ? BOARD_SIZE : 1;
     fun(-adjacentIndex)(0)(adjacentIndex);
   }
-
-  isMyRoyal(piece: Piece) {
+ 
+  isFriendlyRoyal(piece: Piece) {
     return this.isRoyal && this.isFriendly(piece);
+  }
+  isFriendlyOfficer(piece: Piece) {
+    return this.isOfficer && this.isFriendly(piece);
   }
   get isRoyal() {
     return this instanceof RoyalPiece;
