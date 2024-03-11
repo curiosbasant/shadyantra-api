@@ -7,7 +7,7 @@ import { BOARD_LAYOUT, BOARD_SIZE, ADJACENT_DIRECTION, TOTAL_SQUARES } from '../
 export default class Board {
   readonly #squares = new Map<SquareName, Square>();
   readonly players: [Player, Player];
-  
+
   controlledPiece: Piece | null = null;
 
   constructor(readonly builder: Builder, readonly isWhiteTurn: boolean) {
@@ -57,7 +57,7 @@ export default class Board {
       .setSquare(new ForbiddenZone(this, 'x9', Alliance.WHITE))
       .setSquare(new ForbiddenZone(this, 'y9', Alliance.WHITE));
   }
-  
+
   private dividePieces() {
     const whitePieces: Piece[] = [], blackPieces: Piece[] = [];
     for (const piece of this.builder.config) {
@@ -86,7 +86,7 @@ export default class Board {
 
   }
 
-/** Converts the board to a printable string. */
+  /** Converts the board to a printable string. */
   toString() {
     const layout = BOARD_LAYOUT.slice();
     for (const piece of this.builder.config) {
@@ -97,7 +97,7 @@ export default class Board {
     return layout.join('  ') + '\n';
   }
 
-/** Prints the board to the console. */
+  /** Prints the board to the console. */
   print() {
     console.log('\n', this.toString());
   }
@@ -107,7 +107,7 @@ export default class Board {
     return this;
   }
 
-/** Returns the board squares in an array */
+  /** Returns the board squares in an array */
   get squares() {
     return [...this.#squares.values()];
   }
@@ -121,6 +121,7 @@ export default class Board {
 
 export class Builder {
   config: Piece[];
+  private moveMaker = Alliance.WHITE;
   constructor(alignment = Array<Piece>(TOTAL_SQUARES).fill(Piece.NULL_PIECE)) {
     this.config = alignment;
   }
@@ -133,12 +134,15 @@ export class Builder {
     this.config[index] = Piece.NULL_PIECE;
     return this;
   }
-
+  setMoveMaker(alliance: Alliance) {
+    // this.moveMaker = alliance;
+    return this;
+  }
   copyAlignment() {
     return this.config.slice();
   }
 
-  build(moveMaker = Alliance.WHITE) {
-    return new Board(this, moveMaker == Alliance.WHITE);
+  build() {
+    return new Board(this, this.moveMaker == Alliance.WHITE);
   }
 }

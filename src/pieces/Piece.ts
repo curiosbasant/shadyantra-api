@@ -1,44 +1,31 @@
-import { Arthshastri, Ashvarohi, Gajarohi, Guptchar, Maharathi, OfficerPiece, PieceNotation, PieceSymbol, Pyada, Rajendra, Rajrishi, RoyalPiece, Senapati } from '.';
-import { AttackMove, Board, Move, NormalMove, Square, WeakMove } from '../board';
+import { OfficerPiece, PieceFactory, PieceNotation, PieceSymbol, Pyada, Rajrishi, RoyalPiece } from '.';
+import { Board, Move, Square } from '../board';
 import { Alliance } from '../player';
-import { ADJACENT_DIRECTION, BOARD_SIZE, DIAGNAL_DIRECTION, ORTHOGONAL_DIRECTION } from '../Utils';
+import { BOARD_SIZE } from '../Utils';
 
+export type PIECE_CLASS = { new(...args: [number, Alliance]): Piece; };
 export class PieceType {
-  constructor(readonly symbol: PieceSymbol, readonly name: string, readonly value: number) { }
+  constructor(readonly symbol: PieceSymbol, readonly name: string, readonly value: number, readonly MAX_PARITY: number) { }
 }
 
 export default abstract class Piece {
-  static readonly RAJENDRA = new PieceType('I', 'rajendra', 9);
-  static readonly RAJENDRAW = new PieceType('J', 'rajendra', 9);
-  static readonly ARTHSHASTRI = new PieceType('A', 'arthshastri', 8);
-  static readonly RAJRISHI = new PieceType('R', 'rajrishi', 7);
-  static readonly SENAPATI = new PieceType('S', 'senapati', 6);
-  static readonly MAHARATHI = new PieceType('M', 'maharathi', 5);
-  static readonly ASHVAROHI = new PieceType('H', 'ashvarohi', 4);
-  static readonly GAJAROHI = new PieceType('G', 'gajarohi', 3);
-  static readonly GUPTCHAR = new PieceType('C', 'guptchar', 2);
-  static readonly PYADA = new PieceType('P', 'pyada', 1);
+  static readonly RAJENDRA = new PieceType('I', 'rajendra', 9, 1);
+  static readonly RAJENDRAW = new PieceType('J', 'rajendra', 9, 1);
+  static readonly ARTHSHASTRI = new PieceType('A', 'arthshastri', 8, 1);
+  static readonly RAJRISHI = new PieceType('R', 'rajrishi', 7, 1);
+  static readonly SENAPATI = new PieceType('S', 'senapati', 6, 1);
+  static readonly MAHARATHI = new PieceType('M', 'maharathi', 5, 2);
+  static readonly ASHVAROHI = new PieceType('H', 'ashvarohi', 4, 2);
+  static readonly GAJAROHI = new PieceType('G', 'gajarohi', 3, 2);
+  static readonly GUPTCHAR = new PieceType('C', 'guptchar', 2, 6);
+  static readonly PYADA = new PieceType('P', 'pyada', 1, 8);
   static readonly NULL_PIECE = null as unknown as NullPiece;
 
   static readonly STRENGTH_ORDER = Object.freeze([
     Piece.GUPTCHAR, Piece.GAJAROHI, Piece.ASHVAROHI, Piece.MAHARATHI, Piece.SENAPATI
   ]);
-  static getPieceBySymbol(symbol: PieceSymbol) {
-    switch (symbol) {
-      case 'P': return Pyada;
-      case 'C': return Guptchar;
-      case 'G': return Gajarohi;
-      case 'H': return Ashvarohi;
-      case 'M': return Maharathi;
-      case 'S': return Senapati;
-      case 'A': return Arthshastri;
-      case 'I': return Rajendra;
-      case 'J': return Rajendra;
-      case 'R': return Rajrishi;
-    }
-  }
 
-  abstract calculateLegalMoves(moves: Move[], currentSquare: Square, toRetreat: boolean): void;
+  abstract calculateLegalMoves(currentSquare: Square, toRetreat: boolean): Move[];
   abstract moveTo(move: Move): Piece;
 
   readonly notation: PieceNotation;
@@ -47,18 +34,6 @@ export default abstract class Piece {
 
   constructor(readonly type: PieceType, readonly position: number, readonly alliance: Alliance) {
     this.notation = type.symbol[alliance == Alliance.WHITE ? 'toUpperCase' : 'toLowerCase']() as PieceNotation;
-  }
-
-  createMove(moves: Move[], square: Square, killIf = true) {
-    if (square.isEmpty) moves.push(new NormalMove(this, square));
-    else if (killIf && this.isDominantOn(square)) {
-      moves.push(new AttackMove(this, square));
-    }
-  }
-  createWeakMove(moves: Move[], relativeSquare: Square, relativeIndex: number) {
-    const neighbourSquare = relativeSquare.getNearbySquare(relativeIndex);
-    const sucess = neighbourSquare?.isEmpty && moves.push(new WeakMove(this, neighbourSquare));
-    return Boolean(sucess);
   }
 
   square(board: Board) {
@@ -70,10 +45,8 @@ export default abstract class Piece {
     const nextRank = Piece.STRENGTH_ORDER[index + sign];
     if (!nextRank) {
       throw new Error(`Cannot ${ sign < 1 ? 'de' : 'pro' }mote ${ this.type.name }`);
-
     }
-    const PieceClass = Piece.getPieceBySymbol(nextRank.symbol) as unknown as typeof Pyada;
-    return new PieceClass(this.position, this.alliance);
+    return PieceFactory.Create(this.notation, this.position);
   }
   /** Promotes the piece  */
   promote() {
@@ -83,19 +56,8 @@ export default abstract class Piece {
   demote() {
     return this.mote(-1);
   }
-  /** Returns the path to WarZone  */
-  protected hostilePath(board: Board) {
-    const moves: WeakMove[] = [];
-    const currentSquare = this.square(board);
+  couldBePromoted() {
 
-    for (const candidateSquareIndex of ADJACENT_DIRECTION) {
-      const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
-      if (destinationSquare && destinationSquare.isEmpty && (destinationSquare.isWarZone || destinationSquare.isForbiddenZone)) {
-        moves.push(new WeakMove(this, destinationSquare));
-      }
-    }
-
-    return moves;
   }
   isDominantOn(destinationSquare: Square) {
     return this.isEnemyOf(destinationSquare.piece) && !destinationSquare.piece.isGodman;
@@ -109,11 +71,7 @@ export default abstract class Piece {
     return !piece.isNull && this.alliance !== piece.alliance;
   }
 
-  /** Checks if other piece is nearby */
-  isCloseTo(piece: Piece) {
-    return ADJACENT_DIRECTION.includes(this.position - piece.position);
-  }
-  protected trishulMovement(moves: Move[], originSquare: Square, direction: number, isWeak = false) {
+  protected _trishoolMovement(moves: Move[], originSquare: Square, direction: number, isWeak = false) {
     const fun = (relativeIndex: number) => {
       const destinationSquare = originSquare.getNearbySquare(relativeIndex + direction);
       isWeak ?
@@ -124,12 +82,37 @@ export default abstract class Piece {
     const adjacentIndex = Math.abs(direction) == 1 ? BOARD_SIZE : 1;
     fun(-adjacentIndex)(0)(adjacentIndex);
   }
- 
+
+  protected isWeak(resourceSquare: Square): boolean | null {
+    return true;
+  }
+  protected trishoolMovement(moves: Move[], currentSquare: Square, headDir: number, toRetreat = false) {
+    const resourceSquare = currentSquare.getNearbySquare(headDir)!; // fake !
+    if (this.isBlocked(resourceSquare)) return;
+    const destinationSquare = resourceSquare.getNearbySquare(headDir);
+    if (!destinationSquare || toRetreat && destinationSquare.isOfOpponent) return;
+
+    const isWeak = this.isWeak(resourceSquare),
+      sideDir = Math.abs(headDir) == 1 ? this.alliance.direction.forward : 1;
+    this.knightMove(moves, currentSquare, headDir * 2 - sideDir, isWeak ?? false);
+    isWeak != null && this.knightMove(moves, currentSquare, headDir * 2, isWeak);
+    this.knightMove(moves, currentSquare, headDir * 2 + sideDir, isWeak ?? false);
+  }
+  protected isBlocked(frontSquare: Square | null) {
+    return this.isEnemyOf(frontSquare!.piece);
+  }
+  protected knightMove(moves: Move[], currentSquare: Square, direction: number, isWeak = false) {
+    const destinationSquare = currentSquare.getNearbySquare(direction);
+    isWeak ?
+      destinationSquare?.createWeakMove(moves, currentSquare) :
+      destinationSquare?.createMove(moves, currentSquare);
+  }
+
   isFriendlyRoyal(piece: Piece) {
-    return this.isRoyal && this.isFriendly(piece);
+    return piece.isRoyal && this.isFriendly(piece);
   }
   isFriendlyOfficer(piece: Piece) {
-    return this.isOfficer && this.isFriendly(piece);
+    return piece.isOfficer && this.isFriendly(piece);
   }
   get isRoyal() {
     return this instanceof RoyalPiece;
@@ -168,8 +151,8 @@ export class NullPiece extends Piece {
     // @ts-ignore
     super({ symbol: '' }, -1, null);
   }
-  calculateLegalMoves() {
-    new Error("Can't calculate moves on empty square!");
+  calculateLegalMoves(): never {
+    throw new Error("Can't calculate moves on empty square!");
   }
   moveTo(): never {
     throw new Error('No piece to move');

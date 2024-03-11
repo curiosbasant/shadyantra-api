@@ -20,8 +20,12 @@
     "skipLibCheck": true,
     // "resolveJsonModule": true,
     "outDir": "lib",
-    "rootDir": "src",
+    // "rootDir": "src",
     "strict": true,
     "inlineSourceMap": true,
-  }
+  },
+  "include": [
+    "src",
+    "test"
+  ]
 }

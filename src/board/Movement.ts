@@ -6,16 +6,17 @@ export default abstract class Move {
   constructor(readonly movedPiece: Piece, readonly destinationSquare: Square) {
 
   }
-  private getAlignmentCopy() {
+  protected getAlignmentCopy() {
     return this.destinationSquare.board.builder.copyAlignment();
   }
   execute() {
     this.isExecuted = true;
     const configCopy = this.getAlignmentCopy();
     const builder = new Builder(configCopy)
+      .setMoveMaker(this.opponentAlliance)
       .removePiece(this.movedPiece.position)
       .setPiece(this.movedPiece.moveTo(this));
-    return builder.build(this.destinationSquare.board.opponentPlayer.alliance);
+    return builder.build();
   }
 
   takeback() {
@@ -25,6 +26,9 @@ export default abstract class Move {
   toString() {
     return `${ this.movedPiece.type.symbol }${ this.destinationSquare.name }`;
   }
+  get opponentAlliance() {
+    return this.destinationSquare.board.opponentPlayer.alliance;
+  }
 }
 export class NormalMove extends Move {
   constructor(movedPiece: Piece, destinationSquare: Square) {
@@ -33,7 +37,6 @@ export class NormalMove extends Move {
   }
 }
 export class WeakMove extends Move {
-
 }
 export class AttackMove extends Move {
   get attackedPiece() {
@@ -43,10 +46,11 @@ export class AttackMove extends Move {
     return `${ this.movedPiece.type.symbol }x${ this.destinationSquare.name }`;
   }
 }
-
+export class ControlMove extends Move {
+}
 export class SuicideMove extends Move {
   execute() {
-    const configCopy = this.destinationSquare.board.builder.copyAlignment();
+    const configCopy = this.getAlignmentCopy();
     const builder = new Builder(configCopy)
       .removePiece(this.movedPiece.position);
     // .setPiece(this.movedPiece.moveTo(this));
@@ -54,10 +58,21 @@ export class SuicideMove extends Move {
   }
 }
 
-export class PromotionMove extends Move {
-
+export abstract class MotionMove extends Move {
 }
-
-export class DemotionMove extends Move {
-
+export class PromotionMove extends MotionMove {
+  readonly pieceBefore: Piece;
+  constructor(movedPiece: Piece, destinationSquare: Square) {
+    super(movedPiece, destinationSquare);
+    this.pieceBefore = destinationSquare.piece;
+  }
+  execute() {
+    const configCopy = this.getAlignmentCopy();
+    const builder = new Builder(configCopy)
+      .setMoveMaker(this.opponentAlliance)
+      .setPiece(this.pieceBefore.promote());
+    return builder.build();
+  }
+}
+export class DemotionMove extends MotionMove {
 }

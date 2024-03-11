@@ -3,7 +3,7 @@ import path from 'path';
 import { performance } from 'perf_hooks';
 import requireAll from 'require-all';
 import { Board, Builder, History, Move, SquareName, SQUARE_FLAGS, WeakMove } from '.';
-import { Piece, PieceSymbol } from '../pieces';
+import { Piece, PieceFactory, PieceNotation, PieceSymbol } from '../pieces';
 import { Alliance } from '../player';
 import { BOARD_SIZE, DEFAULT_FEN, EVENT, TOTAL_SQUARES } from '../Utils';
 
@@ -62,8 +62,10 @@ export default class ShadYantra extends EventEmitter {
   move(squareRef: MoveString | MoveObject) {
     const { current, destination } = this.parseMove(squareRef);
 
-    const currentLegalMoves = this.board.activePlayer.legalMoves;
-    const validMoves = currentLegalMoves.filter(move => move.destinationSquare == destination && move.movedPiece == current.piece);
+    const selectedPieceMoves = this.board.activePlayer.moves.get(current.piece);
+    if (!selectedPieceMoves) throw new Error("It's not your turn!");
+
+    const validMoves = selectedPieceMoves.filter(move => move.destinationSquare == destination);
     if (validMoves.length == 0) {
       console.error('Invalid move');
       return;
@@ -99,18 +101,35 @@ export default class ShadYantra extends EventEmitter {
   }
   select(squareName: string) {
     const square = this.board.getSquareWithName(squareName as SquareName);
-    if (!square) throw new Error("That square doesnot exist");
-    if (square.isEmpty) throw new Error("No piece on that square!");
-    const validMoves = this.board.activePlayer.legalMoves.filter(move => move.movedPiece == square.piece);
+    if (!square) throw new Error(`Square with name ${ squareName } doesnot exist`);
+    if (square.isEmpty) throw new Error("That square is not occupied by any piece.");
+    const validMoves = this.board.activePlayer.moves.get(square.piece);
+    if (!validMoves) throw new Error("It's not your turn!");
+
     const validSquareNames = validMoves.map(move => move.destinationSquare.name);
-    if (validSquareNames.length == 1) return `1 Legal Move for ${ square.piece.notation } on square ${ square.name } is: ${ validSquareNames[0] }`;
-    return `${ validSquareNames.length } Legal Moves for ${ square.piece.notation } on square ${ square.name } are: ${ validSquareNames.join(', ') }`;
+    return !validSquareNames.length ?
+      `The piece ${ square.piece.notation } on square ${ square.name } can't be moved in this position.` :
+      validSquareNames.length == 1 ?
+        `1 Legal Move for ${ square.piece.notation } on square ${ square.name } is: ${ validSquareNames[0] }` :
+        `${ validSquareNames.length } Legal Moves for ${ square.piece.notation } on square ${ square.name } are: ${ validSquareNames.join(', ') }`;
   }
   removePieceFrom(square: SquareName) {
     return true;
   }
   putPieceOn(square: SquareName, notation: PieceSymbol) {
 
+  }
+
+  getStatus() {
+    const squares = this.board.squares.map(({ name, piece }) => ({
+      name,
+      piece: piece.isNull ? null : {
+        notation: piece.notation,
+        name: piece.type.name,
+        side: piece.alliance.color
+      }
+    }));
+    return { board: { squares } };
   }
 
   registerEvents(dirname: string) {
@@ -132,10 +151,7 @@ export default class ShadYantra extends EventEmitter {
       if (ch.isNumber()) {
         sqrIndex += +ch;
       } else {
-        const PieceClass = Piece.getPieceBySymbol(ch.toUpperCase() as PieceSymbol);
-        const alliance = ch.isUpperCase() ? Alliance.WHITE : Alliance.BLACK;
-        builder.setPiece(new PieceClass(sqrIndex, alliance));
-        // console.log(sqrIndex, ch);
+        builder.setPiece(PieceFactory.Create(ch as PieceNotation, sqrIndex));
       }
       sqrIndex++;
     }

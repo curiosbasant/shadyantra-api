@@ -1,18 +1,36 @@
-import { Board, NormalMove, AttackMove, WeakMove, Move, Square } from '../board';
+import { time } from 'console';
+import { Piece } from '.';
+import { Board, Move, Square } from '../board';
 import { Alliance } from '../player';
-import { BOARD_SIZE, DIAGNAL_DIRECTION, ADJACENT_DIRECTION, ORTHOGONAL_DIRECTION } from '../Utils';
-import { Piece, PieceType } from '.';
+import { ADJACENT_DIRECTION, BOARD_SIZE, DIAGNAL_DIRECTION, ORTHOGONAL_DIRECTION } from '../Utils';
 
 
 export default abstract class RoyalPiece extends Piece {
-  calculateLegalMoves(moves: Move[], currentSquare: Square) {
+  calculateLegalMoves(currentSquare: Square) {
+    const moves: Move[] = [];
     for (const candidateSquareIndex of ADJACENT_DIRECTION) {
       const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
       if (!destinationSquare) continue;
       if (currentSquare.isRoyalNearby || currentSquare.isZoneSame(destinationSquare)) {
-        destinationSquare.createWeakMove(moves, currentSquare);
+        if (destinationSquare.createWeakMove(moves, currentSquare) && this.isFriendlyOfficer(destinationSquare.piece)) {
+          destinationSquare.createPromotionMove(moves, currentSquare);
+        }
       }
     }
+
+    if (currentSquare.isRoyalNearby && !currentSquare.isTruceZone)
+      for (const plus of ORTHOGONAL_DIRECTION) {
+        this.trishoolMovement(moves, currentSquare, plus);
+      }
+    return moves;
+  }
+  isWeak() {
+    return !this.isIndra;
+  }
+  isBlocked(frontSquare: Square | null) {
+    if (!frontSquare) return true;
+    const currentSquare = this.square(frontSquare.board);
+    return frontSquare.isTruceZone || !frontSquare.isZoneSame(currentSquare) || super.isBlocked(frontSquare);
   }
 
   helpNearbyRoyals(board: Board) {
@@ -28,6 +46,9 @@ export default abstract class RoyalPiece extends Piece {
       }
     }
   }
+  get isIndra() {
+    return this instanceof Indra;
+  }
 }
 
 export abstract class Indra extends RoyalPiece {
@@ -36,7 +57,8 @@ export class Rajendra extends Indra {
   constructor(position: number, alliance: Alliance) {
     super(Piece.RAJENDRA, position, alliance);
   }
-  calculateLegalMoves(moves: Move[], currentSquare: Square) {
+  _calculateLegalMoves(currentSquare: Square) {
+    const moves: Move[] = [];
     for (const candidateSquareIndex of DIAGNAL_DIRECTION) {
       const destinationSquare = currentSquare.getNearbySquare(candidateSquareIndex);
       if (!destinationSquare) continue;
@@ -65,6 +87,7 @@ export class Rajendra extends Indra {
         }
       }
     }
+    return moves;
   }
 
   moveTo(move: Move) {

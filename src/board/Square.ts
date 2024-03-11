@@ -1,4 +1,4 @@
-import { AttackMove, Board, Move, NormalMove, SuicideMove, WeakMove } from '.';
+import { AttackMove, Board, Move, NormalMove, PromotionMove, SuicideMove, WeakMove } from '.';
 import { Piece } from '../pieces';
 import { Alliance } from '../player';
 import { ADJACENT_DIRECTION } from '../Utils';
@@ -63,14 +63,14 @@ export default abstract class Square {
   restrictPieceToMove(piece: Piece) {
     this.restrictedPieces.add(piece);
   }
-  
+
   addAttacker(piece: Piece) {
     this.#attackers.add(piece);
   }
   isAttackedBy(piece: Piece) {
     this.#attackers.has(piece);
   }
-  
+
   get isInAttack() {
     return Boolean(this.#attackers.size);
   }
@@ -102,6 +102,23 @@ export default abstract class Square {
   get rank() {
     return +this.name[1];
   }
+  
+  get forwardSquare() {
+    const dir = this.board.activePlayer.alliance.direction;
+    return this.getNearbySquare(dir as unknown as number);
+  }
+  get backwardSquare() {
+    const dir = this.board.activePlayer.alliance.direction;
+    return this.getNearbySquare(dir.backward);
+  }
+  get leftSquare() {
+    const dir = this.board.activePlayer.alliance.direction;
+    return this.getNearbySquare(dir.left);
+  }
+  get rightSquare() {
+    const dir = this.board.activePlayer.alliance.direction;
+    return this.getNearbySquare(dir.right);
+  }
 
   get isWarZone() {
     return this instanceof WarZone;
@@ -125,6 +142,17 @@ export default abstract class Square {
     this.isEmpty && moves.push(new WeakMove(originSquare.piece, this));
     return this.isOccupied;
   }
+  createPromotionMove(moves: Move[], originSquare: Square) {
+    if (this.isZoneSame(originSquare)) {
+      moves.push(new PromotionMove(originSquare.piece, this));
+    }
+  }
+  createDemotionMove(moves: Move[], originSquare: Square) {
+
+  }
+  createControlMove(moves: Move[], originSquare: Square) {
+
+  }
   protected createDominatingMove(moves: Move[], originSquare: Square) {
     if (this.isEmpty) {
       moves.push(new NormalMove(originSquare.piece, this));
@@ -137,8 +165,8 @@ export default abstract class Square {
 
 export class WarZone extends Square {
   createMove(moves: Move[], originSquare: Square) {
-    return originSquare.isTruceZone ?
-      this.createWeakMove(moves, originSquare) || true :
+    return originSquare.isTruceZone || originSquare.isMediateZone ?
+      this.createWeakMove(moves, originSquare) || originSquare.isTruceZone :
       this.createDominatingMove(moves, originSquare);
   }
 }
@@ -182,14 +210,15 @@ export class MediateZone extends Square {
 }
 
 export class ForbiddenZone extends Square {
-  createMove(moves: Move[], originSquare: Square): true {
+  createMove(moves: Move[], originSquare: Square) {
+    return this.createWeakMove(moves, originSquare); 
     const Mover = originSquare.piece.isGodman ? NormalMove : SuicideMove;
     moves.push(new Mover(originSquare.piece, this));
     return true;
   }
-  createWeakMove(moves: Move[], originSquare: Square) {
-    return this.createMove(moves, originSquare);
-  }
+  // createWeakMove(moves: Move[], originSquare: Square) {
+  //   return this.createMove(moves, originSquare);
+  // }
   getNearbySquare(relativeIndex: number) {
     const neighbourSquare = this.board.getSquareAt(this.index + relativeIndex);
     return (
@@ -198,6 +227,3 @@ export class ForbiddenZone extends Square {
     ) ? null : neighbourSquare;
   }
 }
-
-// Rajrishi - naarad
-// raja => royal member

@@ -10,7 +10,8 @@ export default class Rajrishi extends Piece {
     super(Piece.RAJRISHI, position, alliance);
   }
 
-  calculateLegalMoves(moves: Move[], currentSquare: Square) {
+  calculateLegalMoves(currentSquare: Square) {
+    const moves: Move[] = [];
     const loop = (direction: number, refSquare = currentSquare) => {
       const nextSquare = refSquare.getNearbySquare(direction);
       if (!nextSquare) return refSquare;
@@ -21,6 +22,7 @@ export default class Rajrishi extends Piece {
     for (const direction of ADJACENT_DIRECTION) {
       loop(direction);
     }
+    return moves;
   }
 
   /** Freezes all surrounding squares to the Rajrishi if no opponent royal is on them. */

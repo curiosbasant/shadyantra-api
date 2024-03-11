@@ -1,11 +1,12 @@
 {
   "name": "shadyantra-api",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": "true",
   "main": "lib/index.js",
   "license": "MIT",
   "scripts": {
     "start": "node .",
+    "compile": "tsc",
     "dev": "ts-node --files src/index.ts"
   },
   "dependencies": {
